@@ -24,4 +24,5 @@ if __name__ == '__main__':
         run_episodes(env, memory)
     transitions = memory.sample(3)
     batch = Experience(*zip(*transitions))
+    print("第二次")
     print(torch.cat(batch.state))
