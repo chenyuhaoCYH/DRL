@@ -4,6 +4,8 @@ import random
 from random import random, uniform, randrange
 import numpy as np
 import torch
+
+from MyErion.model.memory import ExperienceBuffer
 from dqn import DQN
 import torch.optim as optim
 
@@ -16,6 +18,8 @@ N = 40  # 车的数量
 K = 3  # MEC的数量
 Dv = 20  # 车的最大通信范围
 Dk = 200  # MEC的最大通信范围
+
+CAPACITY = 200  # 缓冲池大小
 # 网络学习率
 LEARNING_RATE = 0.01
 momentum = 0.005
@@ -55,6 +59,8 @@ class Vehicle:
         self.cur_network = None
         self.target_network = None
         self.optimizer = None
+        # 缓冲池
+        self.buffer = ExperienceBuffer(capacity=CAPACITY)
 
     # 获得位置
     @property

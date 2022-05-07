@@ -82,6 +82,13 @@ if __name__ == '__main__':
     #     print("{}mec recevied_task".format(mec.id), mec.recevied_task)
     #     print("{}mec resources".format(mec.id), mec.resources)
     # print(env.cur_frame)
-    for i in range(100):
-        actions = env.get_action()
-        env.step(actions)
+    # 测试环境运转 以及缓冲池功能
+    for i in range(5):
+        action = env.get_action()
+        state, actions, rewards, next_state = env.step(action)
+        env.push(state, actions, rewards, next_state)
+    states, action, _, next_states = env.vehicles[0].buffer.sample(2)
+    print(type(states))
+    print(states)
+    print(action)
+    print(next_states)

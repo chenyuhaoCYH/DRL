@@ -38,7 +38,7 @@ class ReplayMemory(object):  # Define a replay memory
 
 class ExperienceBuffer:
     def __init__(self, capacity):
-        self.buffer = collections.deque(maxlen=capacity)
+        self.buffer = collections.deque(maxlen=capacity)  # 队列，先进先出
 
     def __len__(self):
         return len(self.buffer)
@@ -49,4 +49,5 @@ class ExperienceBuffer:
     def sample(self, batch_size):
         indices = np.random.choice(len(self.buffer), batch_size, replace=False)
         states, actions, rewards, next_states = zip(*[self.buffer[idx] for idx in indices])
+        # 转换成numpy
         return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(next_states)

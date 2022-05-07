@@ -29,6 +29,7 @@ def play_step(memory: ExperienceBuffer, epsilon, env, device="cpu"):
     memory.append(exp)
 
 
+# 计算一个智能体的损失
 def calc_loss(batch, net, tgt_net, device="cpu"):
     states, actions, rewards, next_states = batch
     states_v = torch.tensor(np.array(states, copy=False)).to(device)

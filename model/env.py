@@ -1,9 +1,14 @@
 import random
+from collections import namedtuple
+
 import numpy as np
 import torch
 from vehicle import Vehicle
 from random import random, randint
 from mec import MEC
+
+Experience = namedtuple('Transition',
+                        field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
 
 y = [2, 6, 10, 14]  # 车子y的坐标集 # 共四条车道
 direction = [1, 1, -1, -1]  # 车子的方向
@@ -35,6 +40,8 @@ class Env:
         self.num_MECs = num_MECs
         # 总奖励数
         self.totalReward = 0
+        # 每辆车获得的即时奖励
+        self.cur_reward = [0] * num_Vehicles
         # 当前时间
         self.cur_frame = 0
         # 所有车的动作
@@ -147,18 +154,20 @@ class Env:
         sum = 0
         for i, vehicle in enumerate(self.vehicles):
             # 只考虑有任务的车辆
-            if vehicle.task[0] == 0:
-                continue
-            sum += 1
-            aim = self.aim[i]
-            trans_time = self.compute_transmit(taskVehicle=vehicle, aim=aim)
-            precessed_time = self.compute_precessed(vehicle, aim=aim)
-            total_time = trans_time + precessed_time
-            if total_time > vehicle.task[2]:  # 超过最大忍耐时间
-                cur_reward = -1
+            if vehicle.task[0] > 0:
+                # sum += 1
+                aim = self.aim[i]
+                trans_time = self.compute_transmit(taskVehicle=vehicle, aim=aim)
+                precessed_time = self.compute_precessed(vehicle, aim=aim)
+                total_time = trans_time + precessed_time
+                if total_time > vehicle.task[2]:  # 超过最大忍耐时间
+                    cur_reward = -1
+                else:
+                    cur_reward = vehicle.task[2] - total_time
             else:
-                cur_reward = vehicle.task[2] - total_time
+                cur_reward = 0
             reward += cur_reward
+            self.cur_reward[i] = cur_reward
             print("vehicle{} get {} reward".format(i, cur_reward))
         if sum > 0:
             reward /= sum
@@ -234,6 +243,14 @@ class Env:
             else:
                 vehicle.set_location(loc_x, vehicle.get_y)
 
+    # 将状态信息放入各自的缓冲池中
+    def push(self, state, actions, rewards, next_state):
+        for i, vehicle in enumerate(self.vehicles):
+            if vehicle.task[0] == 0:  # 没有任务不算经验
+                continue
+            exp = Experience(state, actions[i], rewards[i], next_state)
+            vehicle.buffer.append(exp)
+
     # 执行动作
     def step(self, actions):
         cur_frame = self.cur_frame + 1
@@ -256,4 +273,4 @@ class Env:
         # print("{}times average reward:".format(cur_frame), reward)
         # print("total reward:", self.totalReward)
         self.renew_state(cur_frame)  # 更新状态
-        return state, self.actions, reward, self.state
+        return state, self.actions, self.cur_reward, self.state
