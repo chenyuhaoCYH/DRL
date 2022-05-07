@@ -7,7 +7,6 @@ import torch
 from dqn import DQN
 import torch.optim as optim
 
-
 sigma = -114  # 噪声dbm
 POWER = 23  # 功率dbm
 BrandWidth = 100  # 带宽MHz
@@ -40,8 +39,10 @@ class Vehicle:
         # self.neighbor = []
         # 当前时间
         self.cur_frame = 0
-        # 接受的任务数量
+        # 接受的任务的列表
         self.recevied_task = []
+        # 接受任务的数量
+        self.sum_needpreceed_task = 0
         # 当前可用资源
         self.resources = round((1 - uniform(0, 0.7)) * Fv, 2)  # GHz
         # 当前任务
@@ -81,7 +82,7 @@ class Vehicle:
         if random() < 0.5:
             self.task = [2, 2, 1.2]  # 任务：大小Mbit、需要资源 Mcycle、最大容忍时间s
         else:
-            self.task = [0, 0, 0]        # 测试为1，1，1
+            self.task = [0, 0, 0]  # 测试为1，1，1
 
     # # 计算两车之间的距离
     # def compute_dis(self, vehicle):
@@ -128,7 +129,7 @@ class Vehicle:
         self.optimizer = optim.RMSprop(params=self.cur_network.parameters(), lr=LEARNING_RATE,
                                        momentum=momentum)
 
-    # 获得状态  维度：[id,loc_x,loc_y,velocity,direction,resources,I,C,T]  1*9
+    # 获得状态  维度：[id,loc_x,loc_y,velocity,direction,resources,I,C,T,length_task]  1*10
     def get_state(self):
         self.state = []
         # 位置信息
@@ -141,7 +142,8 @@ class Vehicle:
         self.state.append(self.resources)
         # 任务信息
         self.state.extend(self.task)
-
+        # 需要处理的任务量
+        self.state.append(self.sum_needpreceed_task)
         return self.state
 
     # # 获得当前智能体的动作
@@ -175,8 +177,6 @@ class Vehicle:
     #             else:
     #                 self.resources += f
     #         self.recevied_task = after_task
-
-
 
     # # 更新状态
     # def renew_state(self, cur_frame, action: list, vehicles):

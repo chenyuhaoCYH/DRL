@@ -7,12 +7,13 @@ from mec import MEC
 
 y = [2, 6, 10, 14]  # 车子y的坐标集 # 共四条车道
 direction = [1, 1, -1, -1]  # 车子的方向
+velocity = 5  # 车子速度
 
-Fv = 20  # 车的计算能力
-N = 40  # 车的数量
-K = 5  # mec的数量
+Fv = 1  # 车的计算能力
+N = 2  # 车的数量
+K = 1  # mec的数量
 ACTIONS = N + K + 1  # 动作空间维度
-STATES = 9 * N + 4 * K  # 状态空间维度
+STATES = 10 * N + 5 * K  # 状态空间维度
 
 sigma = -114  # 噪声dbm
 POWER = 23  # 功率dbm
@@ -37,7 +38,7 @@ class Env:
         # 当前时间
         self.cur_frame = 0
         # 所有车的动作
-        self.actions = [0] * (num_Vehicles + num_MECs + 1)
+        self.actions = [0] * num_Vehicles
         # 所有车要传输的对象 vehicle or mec
         self.aim = []
         # 当前所有的状态信息  维度： 9*num_Vehicles+4*num_MECs
@@ -56,11 +57,11 @@ class Env:
         self.totalReward = 0
         self.state = []
         self.cur_frame = 0
-        self.actions = [0] * (self.num_Vehicles + self.num_MECs + 1)
+        self.actions = [0] * self.num_Vehicles
         i = 0
         while i < self.num_Vehicles:  # 初始化车子
             n = randint(0, 3)
-            self.add_new_vehicles(id=i, loc_x=randint(-500, 500), loc_y=y[n], direction=direction[n], velocity=5)
+            self.add_new_vehicles(id=i, loc_x=randint(-500, 500), loc_y=y[n], direction=direction[n], velocity=velocity)
             i += 1
 
         for i in range(0, self.num_MECs):
@@ -69,8 +70,7 @@ class Env:
             self.state.extend(cur_mec.get_state())
 
     # 获得所有的动作
-    def get_action(self):
-        global eps_threshold
+    def get_action(self, eps_threshold=eps_threshold):
         self.actions = []
         # 逐个获取每个vehicle的动作
         for i, vehicle in enumerate(self.vehicles):
@@ -84,9 +84,9 @@ class Env:
             else:
                 action = torch.tensor([randint(0, self.num_MECs + self.num_Vehicles)],
                                       dtype=torch.int)  # randrange(1 + N + K)]
-                eps_threshold = max(min_eps, eps_threshold - 0.01)   # 减小eps
-            action = action.item()  # torch类型
+            action = int(action.item())  # torch类型==>int
             self.actions.append(action)
+        return self.actions
 
     # 获得要传输的对象
     def get_aim(self):
@@ -119,7 +119,7 @@ class Env:
             task = self.vehicles[i].task
             if task[0] == 0:
                 continue  # 没有任务
-            if action == 0:  # 卸载至本地
+            elif action == 0:  # 卸载至本地
                 self.vehicles[i].recevied_task.append(task)
             elif action <= self.num_MECs:  # 卸载给MEC
                 self.MECs[action - 1].recevied_task.append(task)
@@ -159,19 +159,20 @@ class Env:
             else:
                 cur_reward = vehicle.task[2] - total_time
             reward += cur_reward
-            # print("vehicle{} get {} reward".format(i, cur_reward))
+            print("vehicle{} get {} reward".format(i, cur_reward))
         if sum > 0:
             reward /= sum
         return round(reward, 5)
 
     # 更新资源信息
     def renew_resources(self, cur_frame):
+        time = cur_frame - self.cur_frame
         # 更新车的资源信息
         for i, vehicle in enumerate(self.vehicles):
-            time = cur_frame - self.cur_frame
             total_task = vehicle.recevied_task
             if len(total_task) > 0 and vehicle.resources > 0:  # 此时有任务并且有剩余资源
                 f = vehicle.resources / len(total_task)
+                print("vehicle {} give {} rescource".format(i, f))
                 # vehicle.resources = 0
                 after_task = []
                 for task in total_task:  # 遍历此车的所有任务列表
@@ -182,12 +183,16 @@ class Env:
                     # else:  # 能够完成
                     #     vehicle.resources += f  # 更新资源
                 vehicle.recevied_task = after_task  # 更新任务列表
+                vehicle.sum_needpreceed_task = len(after_task)
+                # 更新能提供的资源（可以省略）
+                # vehicle.resources = round((1 - np.random.uniform(0, 0.7)) * Fv, 2)  # GHz
 
         # 更新mec的资源信息
         for i, mec in enumerate(self.MECs):
             total_task = mec.recevied_task
             if len(total_task) > 0 and mec.resources > 0:
                 f = mec.resources / len(total_task)
+                print("mec {} give {} rescource".format(i, f))
                 mec.resources = 0
                 after_task = []
                 for task in mec.recevied_task:
@@ -198,6 +203,7 @@ class Env:
                     else:
                         mec.resources += f
                 mec.recevied_task = after_task
+                mec.sum_needpreceed_task = len(after_task)
 
     # 更新状态
     def renew_state(self, cur_frame):
@@ -229,15 +235,25 @@ class Env:
                 vehicle.set_location(loc_x, vehicle.get_y)
 
     # 执行动作
-    def step(self):
+    def step(self, actions):
         cur_frame = self.cur_frame + 1
         state = self.state
-        self.get_action()  # 获得动作
+        print("vehicle 0 state:", self.vehicles[0].state)
+        print("vehicle 1 state:", self.vehicles[1].state)
+        print("mec 0 state:", self.MECs[0].state)
+        self.actions = actions
+        # self.get_action()  # 获得动作
+        print(self.actions)
         self.get_aim()  # 获得目标
         self.distribute_task()  # 分配任务
+        print("vehicle 0 recevied task:", self.vehicles[0].recevied_task)
+        print("vehicle 1 recevied task:", self.vehicles[1].recevied_task)
+        print("mec 0 recevied task:", self.MECs[0].recevied_task)
+        # print("actions:",self.actions)
+        # print("aim:",self.aim)
         reward = self.get_averageReward()  # 获得当前奖励
         self.totalReward += reward
-        print("{}times average reward:".format(cur_frame), reward)
-        print("total reward:", self.totalReward)
+        # print("{}times average reward:".format(cur_frame), reward)
+        # print("total reward:", self.totalReward)
         self.renew_state(cur_frame)  # 更新状态
         return state, self.actions, reward, self.state

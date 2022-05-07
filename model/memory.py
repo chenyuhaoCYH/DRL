@@ -1,9 +1,11 @@
 # 经验类型
+import collections
 from collections import namedtuple
 from random import sample
+import numpy as np
 
 Experience = namedtuple('Transition',
-                        ('state', 'action', 'reward', 'next_state'))  # Define a transition tuple
+                        field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
 
 
 class ReplayMemory(object):  # Define a replay memory
@@ -32,3 +34,19 @@ class ReplayMemory(object):  # Define a replay memory
 
     def __len__(self):
         return len(self.memory)
+
+
+class ExperienceBuffer:
+    def __init__(self, capacity):
+        self.buffer = collections.deque(maxlen=capacity)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def append(self, experience: Experience):
+        self.buffer.append(experience)
+
+    def sample(self, batch_size):
+        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        states, actions, rewards, next_states = zip(*[self.buffer[idx] for idx in indices])
+        return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(next_states)

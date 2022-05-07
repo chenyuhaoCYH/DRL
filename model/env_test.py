@@ -82,5 +82,6 @@ if __name__ == '__main__':
     #     print("{}mec recevied_task".format(mec.id), mec.recevied_task)
     #     print("{}mec resources".format(mec.id), mec.resources)
     # print(env.cur_frame)
-    for i in range(1000):
-        env.step()
+    for i in range(100):
+        actions = env.get_action()
+        env.step(actions)

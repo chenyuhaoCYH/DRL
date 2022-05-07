@@ -11,6 +11,8 @@ class MEC:
         self.range = 200
         # 当前接到需要处理的任务信息
         self.recevied_task = []
+        # 接受任务的数量
+        self.sum_needpreceed_task = 0
         # 当前时间
         self.cur_frame = 0
 
@@ -29,12 +31,13 @@ class MEC:
     # 获得状态
     def get_state(self):
         """
-        :return:state 维度：1+2+1 4维【id，loc_x,loc_y,resources】
+        :return:state 维度：1+2+1 5维【id，loc_x,loc_y,resources,sum_needpreceed_task】
         """
         self.state = []
         self.state.append(self.id)
         self.state.extend(self.loc)
         self.state.append(self.resources)
+        self.state.append(self.sum_needpreceed_task)
         return self.state
 
     # # 获得需要处理的任务
