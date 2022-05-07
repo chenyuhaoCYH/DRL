@@ -61,6 +61,8 @@ class Vehicle:
         self.optimizer = None
         # 缓冲池
         self.buffer = ExperienceBuffer(capacity=CAPACITY)
+        # 总奖励
+        self.total_reward = 0.0
 
     # 获得位置
     @property

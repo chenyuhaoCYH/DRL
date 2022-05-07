@@ -15,8 +15,8 @@ direction = [1, 1, -1, -1]  # 车子的方向
 velocity = 5  # 车子速度
 
 Fv = 1  # 车的计算能力
-N = 2  # 车的数量
-K = 1  # mec的数量
+N = 40  # 车的数量
+K = 5  # mec的数量
 ACTIONS = N + K + 1  # 动作空间维度
 STATES = 10 * N + 5 * K  # 状态空间维度
 
@@ -55,9 +55,14 @@ class Env:
     def add_new_vehicles(self, id, loc_x, loc_y, direction, velocity):
         vehicle = Vehicle(id=id, loc_x=loc_x, loc_y=loc_y, direction=direction, velocity=velocity)
         vehicle.creat_work()  # 初始化任务
-        vehicle.init_network(STATES, ACTIONS)  # 初始化网络
+        # vehicle.init_network(STATES, ACTIONS)  # 初始化网络
         self.vehicles.append(vehicle)
         self.state.extend(vehicle.get_state())
+
+    # 初始化网络
+    def init_network(self):
+        for vehicle in self.vehicles:
+            vehicle.init_network(STATES, ACTIONS)
 
     # 初始化/重置环境
     def reset(self):
@@ -75,6 +80,7 @@ class Env:
             cur_mec = MEC(id=i, loc_x=randint(-10, 10), loc_y=randint(-10, 10))
             self.MECs.append(cur_mec)
             self.state.extend(cur_mec.get_state())
+        # self.init_network()   # 初始化网络
 
     # 获得所有的动作
     def get_action(self, eps_threshold=eps_threshold):
@@ -168,6 +174,7 @@ class Env:
                 cur_reward = 0
             reward += cur_reward
             self.cur_reward[i] = cur_reward
+            vehicle.total_reward += cur_reward  # 记录本车的总奖励
             print("vehicle{} get {} reward".format(i, cur_reward))
         if sum > 0:
             reward /= sum
@@ -181,7 +188,7 @@ class Env:
             total_task = vehicle.recevied_task
             if len(total_task) > 0 and vehicle.resources > 0:  # 此时有任务并且有剩余资源
                 f = vehicle.resources / len(total_task)
-                print("vehicle {} give {} rescource".format(i, f))
+                # print("vehicle {} give {} rescource".format(i, f))
                 # vehicle.resources = 0
                 after_task = []
                 for task in total_task:  # 遍历此车的所有任务列表
@@ -201,7 +208,7 @@ class Env:
             total_task = mec.recevied_task
             if len(total_task) > 0 and mec.resources > 0:
                 f = mec.resources / len(total_task)
-                print("mec {} give {} rescource".format(i, f))
+                # print("mec {} give {} rescource".format(i, f))
                 mec.resources = 0
                 after_task = []
                 for task in mec.recevied_task:
@@ -255,22 +262,24 @@ class Env:
     def step(self, actions):
         cur_frame = self.cur_frame + 1
         state = self.state
-        print("vehicle 0 state:", self.vehicles[0].state)
-        print("vehicle 1 state:", self.vehicles[1].state)
-        print("mec 0 state:", self.MECs[0].state)
+        # print("vehicle 0 state:", self.vehicles[0].state)
+        # print("vehicle 1 state:", self.vehicles[1].state)
+        # print("mec 0 state:", self.MECs[0].state)
         self.actions = actions
         # self.get_action()  # 获得动作
         print(self.actions)
         self.get_aim()  # 获得目标
         self.distribute_task()  # 分配任务
-        print("vehicle 0 recevied task:", self.vehicles[0].recevied_task)
-        print("vehicle 1 recevied task:", self.vehicles[1].recevied_task)
-        print("mec 0 recevied task:", self.MECs[0].recevied_task)
+        # print("vehicle 0 recevied task:", self.vehicles[0].recevied_task)
+        # print("vehicle 1 recevied task:", self.vehicles[1].recevied_task)
+        # print("mec 0 recevied task:", self.MECs[0].recevied_task)
         # print("actions:",self.actions)
         # print("aim:",self.aim)
         reward = self.get_averageReward()  # 获得当前奖励
+        if cur_frame % 100 == 0:    # 只计算最近一百秒的平均奖励
+            self.totalReward = 0
         self.totalReward += reward
-        # print("{}times average reward:".format(cur_frame), reward)
+        print("{}times average reward:".format(cur_frame), reward)
         # print("total reward:", self.totalReward)
         self.renew_state(cur_frame)  # 更新状态
         return state, self.actions, self.cur_reward, self.state
