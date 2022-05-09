@@ -19,7 +19,7 @@ K = 3  # MEC的数量
 Dv = 20  # 车的最大通信范围
 Dk = 200  # MEC的最大通信范围
 
-CAPACITY = 200  # 缓冲池大小
+CAPACITY = 20000  # 缓冲池大小
 # 网络学习率
 LEARNING_RATE = 0.01
 momentum = 0.005
@@ -48,7 +48,7 @@ class Vehicle:
         # 接受任务的数量
         self.sum_needpreceed_task = 0
         # 当前可用资源
-        self.resources = round((1 - uniform(0, 0.7)) * Fv, 2)  # GHz
+        self.resources = round((1 - uniform(0.1, 0.6)) * Fv, 2)  # GHz
         # 当前任务
         self.task = []
         # 当前任务需要处理的时间
@@ -87,8 +87,8 @@ class Vehicle:
     # 产生任务 传入当前时间
     def creat_work(self):
         # 每次有0.5的概率产生任务
-        if random() < 0.5:
-            self.task = [2, 2, 1.2]  # 任务：大小Mbit、需要资源 Mcycle、最大容忍时间s
+        if random() <= 0.7:
+            self.task = [2, 2, 3]  # 任务：大小Mbit、需要资源 Gcycle、最大容忍时间s
         else:
             self.task = [0, 0, 0]  # 测试为1，1，1
 

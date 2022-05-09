@@ -83,6 +83,7 @@ if __name__ == '__main__':
     #     print("{}mec resources".format(mec.id), mec.resources)
     # print(env.cur_frame)
     # 测试环境运转 以及缓冲池功能
+    env.init_network()
     for i in range(5):
         action = env.get_action()
         state, actions, rewards, next_state = env.step(action)

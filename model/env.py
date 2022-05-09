@@ -13,10 +13,11 @@ Experience = namedtuple('Transition',
 y = [2, 6, 10, 14]  # 车子y的坐标集 # 共四条车道
 direction = [1, 1, -1, -1]  # 车子的方向
 velocity = 5  # 车子速度
+MEC_loc = [[-300, 0], [0, 16], [300, 0]]  # mec的位置
 
 Fv = 1  # 车的计算能力
-N = 40  # 车的数量
-K = 5  # mec的数量
+N = 20  # 车的数量
+K = 3  # mec的数量
 ACTIONS = N + K + 1  # 动作空间维度
 STATES = 10 * N + 5 * K  # 状态空间维度
 
@@ -38,8 +39,8 @@ class Env:
         # 车辆数以及mec数
         self.num_Vehicles = num_Vehicles
         self.num_MECs = num_MECs
-        # 总奖励数
-        self.totalReward = 0
+        # 当前平均奖励奖励数
+        self.Reward = 0
         # 每辆车获得的即时奖励
         self.cur_reward = [0] * num_Vehicles
         # 当前时间
@@ -66,18 +67,19 @@ class Env:
 
     # 初始化/重置环境
     def reset(self):
-        self.totalReward = 0
+        self.Reward = 0
         self.state = []
         self.cur_frame = 0
         self.actions = [0] * self.num_Vehicles
         i = 0
         while i < self.num_Vehicles:  # 初始化车子
             n = randint(0, 3)
-            self.add_new_vehicles(id=i, loc_x=randint(-500, 500), loc_y=y[n], direction=direction[n], velocity=velocity)
+            self.add_new_vehicles(id=i, loc_x=randint(-500, 500), loc_y=y[n], direction=direction[n],
+                                  velocity=randint(5, 10))
             i += 1
 
         for i in range(0, self.num_MECs):
-            cur_mec = MEC(id=i, loc_x=randint(-10, 10), loc_y=randint(-10, 10))
+            cur_mec = MEC(id=i, loc_x=MEC_loc[i][0], loc_y=MEC_loc[i][1])
             self.MECs.append(cur_mec)
             self.state.extend(cur_mec.get_state())
         # self.init_network()   # 初始化网络
@@ -94,6 +96,7 @@ class Env:
                     state = torch.tensor([self.state])
                     Q_value = vehicle.cur_network(state)  # Get the Q_value from DNN
                     action = Q_value.max(1)[1].view(1)  # 获得最大值的那一个下标为要采取的动作   (二维取列最大的下标值(一维)-》二维)
+                    print("vehicle {} current q value:".format(i), Q_value)
             else:
                 action = torch.tensor([randint(0, self.num_MECs + self.num_Vehicles)],
                                       dtype=torch.int)  # randrange(1 + N + K)]
@@ -124,7 +127,7 @@ class Env:
         sign = 10 ** (POWER * (self.compute_distance(taskVehicle, aim) ** (-alpha)) / sigma / 10)  # dB转w
         SNR = BrandWidth / N * np.log2(1 + sign)  # Mbit/s
         # print("SNR:", SNR, "Mbit/s")
-        return round(taskVehicle.task[0] / SNR, 2)  # 单位s   Mb/(Mbit/s)
+        return round(taskVehicle.task[0] / SNR, 2)  # 单位s   Mb/(Mbit/s)  大约一秒钟
 
     # 根据动作将任务添加至对应的列表当中  分配任务
     def distribute_task(self):
@@ -161,15 +164,19 @@ class Env:
         for i, vehicle in enumerate(self.vehicles):
             # 只考虑有任务的车辆
             if vehicle.task[0] > 0:
-                # sum += 1
+                sum += 1
                 aim = self.aim[i]
-                trans_time = self.compute_transmit(taskVehicle=vehicle, aim=aim)
-                precessed_time = self.compute_precessed(vehicle, aim=aim)
-                total_time = trans_time + precessed_time
-                if total_time > vehicle.task[2]:  # 超过最大忍耐时间
+                distance = self.compute_distance(vehicle, aim)
+                if distance > aim.range:  # 距离大于通信范围
                     cur_reward = -1
-                else:
-                    cur_reward = vehicle.task[2] - total_time
+                else:  # 假设一直处于通信范围内
+                    trans_time = self.compute_transmit(taskVehicle=vehicle, aim=aim)
+                    precessed_time = self.compute_precessed(vehicle, aim=aim)
+                    total_time = trans_time + precessed_time
+                    if total_time > vehicle.task[2]:  # 超过最大忍耐时间
+                        cur_reward = -1
+                    else:
+                        cur_reward = vehicle.task[2] - total_time  # 剩余时间作为奖励
             else:
                 cur_reward = 0
             reward += cur_reward
@@ -275,11 +282,11 @@ class Env:
         # print("mec 0 recevied task:", self.MECs[0].recevied_task)
         # print("actions:",self.actions)
         # print("aim:",self.aim)
-        reward = self.get_averageReward()  # 获得当前奖励
-        if cur_frame % 100 == 0:    # 只计算最近一百秒的平均奖励
-            self.totalReward = 0
-        self.totalReward += reward
-        print("{}times average reward:".format(cur_frame), reward)
+        self.Reward = self.get_averageReward()  # 获得当前奖励
+        # if cur_frame % 100 == 0:    # 只计算最近一百秒的平均奖励
+        #     self.totalReward = 0
+        # self.totalReward += reward
+        print("{}times average reward:".format(cur_frame), self.Reward)
         # print("total reward:", self.totalReward)
         self.renew_state(cur_frame)  # 更新状态
         return state, self.actions, self.cur_reward, self.state

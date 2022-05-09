@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import namedtuple
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,17 +10,18 @@ from tensorboardX import SummaryWriter
 from MyErion.model.env import Env
 from MyErion.model.dqn import DQN
 from memory import ExperienceBuffer
+import matplotlib.pyplot as plt
 
 Experience = namedtuple('Transition',
                         field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
 GAMMA = 0.99
 BATCH_SIZE = 32
-REPLAY_SIZE = 1000
+REPLAY_SIZE = 10000
 LEARNING_RATE = 1e-4
 SYNC_TARGET_FRAMES = 1000
 
 EPSILON_DECAY_LAST_FRAME = 150000
-EPSILON_START = 1.0
+EPSILON_START = 0.6
 EPSILON_FINAL = 0.01
 
 
@@ -27,23 +29,31 @@ EPSILON_FINAL = 0.01
 def play_step(env, epsilon, device="cpu"):
     action = env.get_action(eps_threshold=epsilon)
     states, actions, rewards, next_states = env.step(action)
-    env.push(states, actions, rewards, next_states)
-    return env.totalReward  # 返回最近一百秒的总的平均奖励
+    env.push(states, actions, rewards, next_states)  # 存入各自缓冲池
+    return env.Reward  # 返回总的平均奖励
 
 
 # 计算一个智能体的损失
 def calc_loss(batch, net: DQN, tgt_net: DQN, device="cpu"):
     states, actions, rewards, next_states = batch
-    states_v = torch.tensor(np.array(states, copy=False)).to(device)
-    actions_v = torch.tensor(np.array(actions)).to(device)
-    rewards_v = torch.tensor(np.array(rewards)).to(device)
-    next_states_v = torch.tensor(np.array(next_states, copy=False)).to(device)
+    states_v = torch.tensor(np.array(states, copy=False), dtype=torch.float32).to(device)
+    print("states_v:", states_v)  # batch状态
+    actions_v = torch.tensor(np.array(actions), dtype=torch.int64).to(device)
+    print("actions_v", actions_v)  # batch动作
+    rewards_v = torch.tensor(np.array(rewards), dtype=torch.float32).to(device)
+    print("rewards_v", rewards_v)  # batch奖励
+    next_states_v = torch.tensor(np.array(next_states, copy=False), dtype=torch.float32).to(device)
+    print("next_states_v", next_states_v)  # batch下一个状态
 
-    state_action_values = net(states_v).gether(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    next_states_values = tgt_net(next_states_v).max(1)[0]
+    state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
+    print("state_action_values", state_action_values)  # batch q值
+    next_states_values = tgt_net(next_states_v).max(1)[0]  # 得到最大的q值
+    print("next_states_values", next_states_values)  # batch next q值
 
     next_states_values = next_states_values.detach()
+    print("next_states_values", next_states_values)
     expected_state_values = next_states_values * GAMMA + rewards_v
+    print(" expected_state_values", expected_state_values)
 
     return nn.MSELoss()(state_action_values, expected_state_values)
 
@@ -56,9 +66,15 @@ if __name__ == '__main__':
     frame_idx = 0
     # writer = SummaryWriter(comment="-" + env.__doc__)
     agents = env.vehicles
+    for agent in agents:
+        print(agent.get_location, agent.velocity)
+    mecs = env.MECs
+    for mec in mecs:
+        print(mec.get_location)
     print(agents[0].cur_network)
 
     total_reward = []
+    recent_reward = []
 
     epsilon = EPSILON_START
     while True:
@@ -68,10 +84,12 @@ if __name__ == '__main__':
         reward = play_step(env, epsilon)
         total_reward.append(reward)
         print("current 100 times total rewards:", np.mean(total_reward[-100:]))
-        if np.mean(total_reward[-100:]) > 20:
+        recent_reward.append(np.mean(total_reward[-100:]))
+        if np.mean(total_reward[-100:]) > 5:
             break
 
         for agent in agents:
+            print("length of {} buffer".format(agent.id), len(agent.buffer))
             if len(agent.buffer) < REPLAY_SIZE:  # 缓冲池要足够大
                 continue
             if frame_idx % SYNC_TARGET_FRAMES == 0:  # 更新目标网络
@@ -79,5 +97,8 @@ if __name__ == '__main__':
             agent.optimizer.zero_grad()
             batch = agent.buffer.sample(BATCH_SIZE)
             loss_t = calc_loss(batch, agent.cur_network, agent.target_network)
+            print("loss:", loss_t)
             loss_t.backward()
             agent.optimizer.step()
+
+    plt.plot(len(recent_reward), recent_reward)
