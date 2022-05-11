@@ -24,6 +24,8 @@ CAPACITY = 20000  # 缓冲池大小
 LEARNING_RATE = 0.01
 momentum = 0.005
 
+np.random.seed(2)
+
 
 class Vehicle:
     # 位置：x，y 速度、方向：-1左，1右
@@ -51,6 +53,8 @@ class Vehicle:
         self.resources = round((1 - uniform(0.1, 0.6)) * Fv, 2)  # GHz
         # 当前任务
         self.task = []
+        # 任务类型 共三种 【0，0，0】
+        self.type = []
         # 当前任务需要处理的时间
         self.needProcessedTime = 0
         # 当前状态信息
@@ -86,11 +90,21 @@ class Vehicle:
 
     # 产生任务 传入当前时间
     def creat_work(self):
-        # 每次有0.5的概率产生任务
-        if random() <= 0.7:
-            self.task = [2, 2, 3]  # 任务：大小Mbit、需要资源 Gcycle、最大容忍时间s
+        # 每次有0.7的概率产生任务
+        if np.random.random() <= 0.7:
+            sample = np.random.random()
+            if sample < 0.3:
+                self.task = [2, 2, 3]  # 任务：大小Mbit、需要资源 Gcycle、最大容忍时间s
+                self.type = [1, 0, 0]  # 可按数据独立运行的任务
+            elif sample < 0.6:
+                self.task = []
+                self.type = [0, 1, 0]  # 可按代码连续执行的任务
+            else:
+                self.task = [2, 2, 3]
+                self.type = [0, 0, 1]  # 只可独立运行的任务，优先级最高
         else:
-            self.task = [0, 0, 0]  # 测试为1，1，1
+            self.task = [0, 0, 0]  # 当前不产生任务
+            self.type = [0, 0, 0]
 
     # # 计算两车之间的距离
     # def compute_dis(self, vehicle):
@@ -137,7 +151,7 @@ class Vehicle:
         self.optimizer = optim.RMSprop(params=self.cur_network.parameters(), lr=LEARNING_RATE,
                                        momentum=momentum)
 
-    # 获得状态  维度：[id,loc_x,loc_y,velocity,direction,resources,I,C,T,length_task]  1*10
+    # 获得状态  维度：[id,loc_x,loc_y,velocity,direction,resources,I,C,T,[type],length_task]  1*13
     def get_state(self):
         self.state = []
         # 位置信息
@@ -150,6 +164,8 @@ class Vehicle:
         self.state.append(self.resources)
         # 任务信息
         self.state.extend(self.task)
+        # 任务类型
+        self.state.extend(self.type)
         # 需要处理的任务量
         self.state.append(self.sum_needpreceed_task)
         return self.state

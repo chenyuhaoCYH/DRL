@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import time
 from collections import namedtuple
 
 import numpy as np
@@ -37,23 +37,23 @@ def play_step(env, epsilon, device="cpu"):
 def calc_loss(batch, net: DQN, tgt_net: DQN, device="cpu"):
     states, actions, rewards, next_states = batch
     states_v = torch.tensor(np.array(states, copy=False), dtype=torch.float32).to(device)
-    print("states_v:", states_v)  # batch状态
+    # print("states_v:", states_v)  # batch状态
     actions_v = torch.tensor(np.array(actions), dtype=torch.int64).to(device)
-    print("actions_v", actions_v)  # batch动作
+    # print("actions_v", actions_v)  # batch动作
     rewards_v = torch.tensor(np.array(rewards), dtype=torch.float32).to(device)
-    print("rewards_v", rewards_v)  # batch奖励
+    # print("rewards_v", rewards_v)  # batch奖励
     next_states_v = torch.tensor(np.array(next_states, copy=False), dtype=torch.float32).to(device)
-    print("next_states_v", next_states_v)  # batch下一个状态
+    # print("next_states_v", next_states_v)  # batch下一个状态
 
     state_action_values = net(states_v).gather(1, actions_v.unsqueeze(-1)).squeeze(-1)
-    print("state_action_values", state_action_values)  # batch q值
+    # print("state_action_values", state_action_values)  # batch q值
     next_states_values = tgt_net(next_states_v).max(1)[0]  # 得到最大的q值
-    print("next_states_values", next_states_values)  # batch next q值
 
+    # 防止梯度流入用于计算下一状态q近似值得NN
     next_states_values = next_states_values.detach()
-    print("next_states_values", next_states_values)
+    # print("next_states_values", next_states_values)
     expected_state_values = next_states_values * GAMMA + rewards_v
-    print(" expected_state_values", expected_state_values)
+    # print(" expected_state_values", expected_state_values)
 
     return nn.MSELoss()(state_action_values, expected_state_values)
 
@@ -77,19 +77,21 @@ if __name__ == '__main__':
     recent_reward = []
 
     epsilon = EPSILON_START
-    while True:
+    eliposde = 50000
+    while eliposde > 0:
         frame_idx += 1
         print("the {} steps".format(frame_idx))
         epsilon = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
         reward = play_step(env, epsilon)
         total_reward.append(reward)
+        print("current reward:", reward)
         print("current 100 times total rewards:", np.mean(total_reward[-100:]))
         recent_reward.append(np.mean(total_reward[-100:]))
         if np.mean(total_reward[-100:]) > 5:
             break
 
         for agent in agents:
-            print("length of {} buffer".format(agent.id), len(agent.buffer))
+            # print("length of {} buffer".format(agent.id), len(agent.buffer))
             if len(agent.buffer) < REPLAY_SIZE:  # 缓冲池要足够大
                 continue
             if frame_idx % SYNC_TARGET_FRAMES == 0:  # 更新目标网络
@@ -97,8 +99,13 @@ if __name__ == '__main__':
             agent.optimizer.zero_grad()
             batch = agent.buffer.sample(BATCH_SIZE)
             loss_t = calc_loss(batch, agent.cur_network, agent.target_network)
-            print("loss:", loss_t)
+            # print("loss:", loss_t)
             loss_t.backward()
             agent.optimizer.step()
+        eliposde -= 1
 
-    plt.plot(len(recent_reward), recent_reward)
+    cur_time = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time()))
+    for i, vehicle in enumerate(env.vehicles):
+        torch.save(vehicle.target_network.state_dict, "../result/{}-vehicle{}.pkl".format(cur_time, i))
+    plt.plot(range(len(recent_reward)), recent_reward)
+    plt.show()
