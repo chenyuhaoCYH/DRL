@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import time
 from collections import namedtuple
+import os
 
 import numpy as np
 import torch
@@ -77,7 +78,7 @@ if __name__ == '__main__':
     recent_reward = []
 
     epsilon = EPSILON_START
-    eliposde = 50000
+    eliposde = 100000
     while eliposde > 0:
         frame_idx += 1
         print("the {} steps".format(frame_idx))
@@ -104,8 +105,11 @@ if __name__ == '__main__':
             agent.optimizer.step()
         eliposde -= 1
 
-    cur_time = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time()))
+    cur_time = time.strftime("%Y-%m-%d-%H-%M", time.localtime(time.time()))
+    # 创建文件夹
+    os.makedirs("D:/pycharm/Project/VML/MyErion/result/"+cur_time)
     for i, vehicle in enumerate(env.vehicles):
-        torch.save(vehicle.target_network.state_dict, "../result/{}-vehicle{}.pkl".format(cur_time, i))
+        # 保存每个网络模型
+        torch.save(vehicle.target_network.state_dict(), "D:/pycharm/Project/VML/MyErion/result/"+cur_time+"/vehicle"+str(i)+".pkl")
     plt.plot(range(len(recent_reward)), recent_reward)
     plt.show()

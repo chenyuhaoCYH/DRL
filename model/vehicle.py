@@ -46,7 +46,7 @@ class Vehicle:
         # 当前时间
         self.cur_frame = 0
         # 接受的任务的列表
-        self.recevied_task = []
+        self.accept_task = []
         # 接受任务的数量
         self.sum_needpreceed_task = 0
         # 当前可用资源
@@ -92,19 +92,9 @@ class Vehicle:
     def creat_work(self):
         # 每次有0.7的概率产生任务
         if np.random.random() <= 0.7:
-            sample = np.random.random()
-            if sample < 0.3:
-                self.task = [2, 2, 3]  # 任务：大小Mbit、需要资源 Gcycle、最大容忍时间s
-                self.type = [1, 0, 0]  # 可按数据独立运行的任务
-            elif sample < 0.6:
-                self.task = []
-                self.type = [0, 1, 0]  # 可按代码连续执行的任务
-            else:
-                self.task = [2, 2, 3]
-                self.type = [0, 0, 1]  # 只可独立运行的任务，优先级最高
+            self.task = [2, 2, 2]
         else:
             self.task = [0, 0, 0]  # 当前不产生任务
-            self.type = [0, 0, 0]
 
     # # 计算两车之间的距离
     # def compute_dis(self, vehicle):
@@ -164,8 +154,8 @@ class Vehicle:
         self.state.append(self.resources)
         # 任务信息
         self.state.extend(self.task)
-        # 任务类型
-        self.state.extend(self.type)
+        # # 任务类型
+        # self.state.extend(self.type)
         # 需要处理的任务量
         self.state.append(self.sum_needpreceed_task)
         return self.state

@@ -10,7 +10,7 @@ class MEC:
         self.state = []
         self.range = 200   # 通信范围 m
         # 当前接到需要处理的任务信息
-        self.recevied_task = []
+        self.accept_task = []
         # 接受任务的数量
         self.sum_needpreceed_task = 0
         # 当前时间

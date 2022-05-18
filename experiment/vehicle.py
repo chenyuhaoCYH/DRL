@@ -169,17 +169,30 @@ class Vehicle:
             self.state.extend(neighbor.excludeNeighbor_state)
 
         # 最近mec的状态 6
-        self.state.extend(self.mec_lest.get_state())
+        if self.mec_lest is not None:
+            self.state.extend(self.mec_lest.get_state())
 
         return self.excludeNeighbor_state
 
     # 获得动作
     def get_action(self):
+        self.action = [0] * (1 + MAX_NEIGHBOR + 1)
         if self.task[0] == 0:  # 当前没有任务
-            return 0
-        if self.type[0] == 1:  # 任务一
-            pass
+            return self.action
+        elif self.type[0] == 1:  # 任务一
+            with torch.no_grad():
+                self.actor1(torch.tensor([self.state]))
         elif self.type[1] == 1:  # 任务二
             pass
         else:  # 任务三
-            pass
+            with torch.no_grad():
+                policy = self.actor3([torch.tensor(self.state)])
+
+
+if __name__ == '__main__':
+    vehicle = Vehicle(1, 20, 4, 1, 8)
+    vehicle.creat_work()
+    vehicle.get_state()
+    print(vehicle.state)
+    vehicle.init_network(len(vehicle.state), 23)
+    print(vehicle.actor1(torch.tensor([vehicle.state])))

@@ -29,3 +29,4 @@ if __name__ == '__main__':
     #     for i in vehicle.neighbor:
     #         print(i.id, end=" ")
     #     print()
+

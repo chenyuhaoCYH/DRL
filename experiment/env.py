@@ -2,10 +2,12 @@ import random
 from collections import namedtuple
 
 import numpy as np
+import ptan.agent
 import torch
 from vehicle import Vehicle
 from random import random, randint
 from mec import MEC
+import model
 
 Experience = namedtuple('Transition',
                         field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
@@ -22,7 +24,7 @@ MAX_NEIGHBOR = 20  # 最大邻居数
 
 ACTIONS = 1 + MAX_NEIGHBOR + 1  # actor动作空间维度(本地+邻居车+最近的mec)
 STATES_CRITIC = 14 * N + 6 * K  # 状态空间维度(critic网络)
-STATES_ACTOR = 20+14*MAX_NEIGHBOR  # （actor网络）
+STATES_ACTOR = 20 + 14 * MAX_NEIGHBOR  # （actor网络）
 
 sigma = -114  # 噪声dbm
 POWER = 23  # 功率dbm
@@ -53,9 +55,13 @@ class Env:
         # 所有车的动作
         self.actions = [0] * num_Vehicles
         # 所有车要传输的对象 vehicle or mec
-        self.aim = []
+        self.aims = []
         # 当前全局的状态信息  维度:
         self.state = []
+        # 网络
+        self.crt_net = None
+        self.twing_net = None
+        self.tgt_ctr_net = None
 
     # 添加车辆
     def add_new_vehicles(self, id, loc_x, loc_y, direction, velocity):
@@ -66,8 +72,11 @@ class Env:
 
     # 初始化网络
     def init_network(self):
-        # 初始化全局critic网络
-
+        # 初始化全局critic网络  获得当前价值函数
+        self.crt_net = model.ModelCritic(STATES_CRITIC)
+        self.tgt_ctr_net = ptan.agent.TargetNet(self.crt_net)
+        # 双q网络获得状态动作函数
+        self.twing_net = model.ModelSACTwinQ(STATES_CRITIC, ACTIONS)
         # 初始化每辆车的actor网络
         for vehicle in self.vehicles:
             vehicle.init_network(STATES_ACTOR, ACTIONS)
@@ -123,35 +132,41 @@ class Env:
             vehicle.mec_lest = self.MECs[distance.index(min(distance))]
 
     # 获得所有的动作
-    def get_action(self, eps_threshold=eps_threshold):
+    def get_action(self):
         self.actions = []
-        # 逐个获取每个vehicle的动作
-        for i, vehicle in enumerate(self.vehicles):
-            sample = np.random.random()
-            if sample > eps_threshold:  # epsilon-greeedy policy
-                # 不计算梯度 防止出现噪声 因为此时只利用
-                with torch.no_grad():
-                    state = torch.tensor([self.state])
-                    Q_value = vehicle.cur_network(state)  # Get the Q_value from DNN
-                    action = Q_value.max(1)[1].view(1)  # 获得最大值的那一个下标为要采取的动作   (二维取列最大的下标值(一维)-》二维)
-                    # print("vehicle {} current q value:".format(i), Q_value)
-            else:
-                action = torch.tensor([randint(0, self.num_MECs + self.num_Vehicles)],
-                                      dtype=torch.int)  # randrange(1 + N + K)]
-            action = int(action.item())  # torch类型==>int
-            self.actions.append(action)
+        # # 逐个获取每个vehicle的动作
+        # for i, vehicle in enumerate(self.vehicles):
+        #     sample = np.random.random()
+        #     if sample > eps_threshold:  # epsilon-greeedy policy
+        #         # 不计算梯度 防止出现噪声 因为此时只利用
+        #         with torch.no_grad():
+        #             state = torch.tensor([self.state])
+        #             Q_value = vehicle.cur_network(state)  # Get the Q_value from DNN
+        #             action = Q_value.max(1)[1].view(1)  # 获得最大值的那一个下标为要采取的动作   (二维取列最大的下标值(一维)-》二维)
+        #             # print("vehicle {} current q value:".format(i), Q_value)
+        #     else:
+        #         action = torch.tensor([randint(0, self.num_MECs + self.num_Vehicles)],
+        #                               dtype=torch.int)  # randrange(1 + N + K)]
+        #     action = int(action.item())  # torch类型==>int
+        #     self.actions.append(action)
+        for vehicle in self.vehicles:
+            self.actions.extend(vehicle.action)
         return self.actions
 
     # 获得要传输的对象
     def get_aim(self):
-        self.aim = []
-        for vehicle, action in zip(self.vehicles, self.actions):  # 遍历所有车
-            if action == 0:  # 选择自己
-                self.aim.append(vehicle)
-            elif action <= self.num_MECs:  # 选择mec
-                self.aim.append(self.MECs[action - 1])
-            else:  # 选择其他车辆
-                self.aim.append(self.vehicles[action - self.num_MECs - 1])
+        self.aims = []
+        for vehicle in self.vehicles:
+            aim = []
+            for i, action in enumerate(vehicle.action):
+                if action != 0:
+                    if i == 0:
+                        aim.append(vehicle)
+                    elif i == 1:
+                        aim.append(vehicle.mec_lest)
+                    else:
+                        aim.append(vehicle.neighbor[i - 2])
+            self.aims.append(aim)
 
     # 计算距离(车到车或者车到MEC)  aim：接受任务的目标
     def compute_distance(self, taskVehicle: Vehicle, aim):
@@ -159,13 +174,9 @@ class Env:
                      2)
 
     # 计算一个任务传输时间
-    def compute_transmit(self, taskVehicle: Vehicle, aim):
-        if aim == taskVehicle:
-            return 0
-        sign = 10 ** (POWER * (self.compute_distance(taskVehicle, aim) ** (-alpha)) / sigma / 10)  # dB转w
-        SNR = BrandWidth / N * np.log2(1 + sign)  # Mbit/s
-        # print("SNR:", SNR, "Mbit/s")
-        return round(taskVehicle.task[0] / SNR, 2)  # 单位s   Mb/(Mbit/s)  大约一秒钟
+    def compute_transmit(self, taskVehicle: Vehicle, aims):
+        sum_time = 0
+        cur = taskVehicle
 
     # 根据动作将任务添加至对应的列表当中  分配任务
     def distribute_task(self):
@@ -273,6 +284,10 @@ class Env:
         self.renew_locs(cur_frame)
         # 更新车和mec的资源及任务列表信息
         self.renew_resources(cur_frame)
+        # 更新邻居表
+        self.renew_neighbor()
+        # 更新最近mec
+        self.renew_neighbor_mec()
         for vehicle in self.vehicles:
             # 产生任务
             vehicle.creat_work()
