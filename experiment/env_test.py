@@ -1,4 +1,5 @@
 from env import Env
+import numpy as np
 
 if __name__ == '__main__':
     env = Env()
@@ -29,4 +30,26 @@ if __name__ == '__main__':
     #     for i in vehicle.neighbor:
     #         print(i.id, end=" ")
     #     print()
+    # 测试更新total——task
+    # list = [vehicles[0],vehicles[1],vehicles[2],vehicles[3],vehicles[4]]
+    # print(list)
+    # for i in reversed(list):
+    #     if i.id >=2:
+    #         list.remove(i)
+    #     else:
+    #         break
+    # print(list)
+    # list=[[]]*5
+    # print(list)
+    for vehicle in vehicles:
+        print(vehicle.get_state())
+        print("车邻居的id：" + str(vehicle.id))
+        for i in vehicle.neighbor:
+            print(i.id, end="  ")
+        print()
 
+    action = []
+    for i in range(50):
+        action.append(np.random.randint(0, 12))
+    print(len(action))
+    env.step(action)
