@@ -1,10 +1,7 @@
-import random
 import sys
 from collections import namedtuple
 
 import numpy as np
-import ptan.agent
-import torch
 from vehicle import Vehicle
 from random import random, randint
 from mec import MEC
@@ -21,10 +18,6 @@ Fv = 1  # 车的计算能力
 N = 20  # 车的数量
 K = 3  # mec的数量
 MAX_NEIGHBOR = 5  # 最大邻居数
-
-ACTIONS = 1 + MAX_NEIGHBOR + 1  # actor动作空间维度(本地+邻居车+最近的mec)
-STATES_CRITIC = 14 * N + 6 * K  # 状态空间维度(critic网络)
-STATES_ACTOR = 20 + 14 * MAX_NEIGHBOR  # （actor网络）
 
 sigma = -114  # 噪声dbm
 POWER = 1  # 功率w dbm
@@ -95,7 +88,6 @@ class Env:
         for i in range(0, self.num_MECs):  # 初始化mec
             cur_mec = MEC(id=i, loc_x=MEC_loc[i][0], loc_y=MEC_loc[i][1])
             self.MECs.append(cur_mec)
-            self.state.extend(cur_mec.get_state())
 
         i = 0
         while i < self.num_Vehicles:  # 初始化车子
@@ -109,9 +101,9 @@ class Env:
 
         # 初始化状态信息
         for vehicle in self.vehicles:
-            vehicle.get_state()
-        for vehicle in self.vehicles:
             self.state.extend(vehicle.get_state())
+        for mec in self.MECs:
+            self.state.extend(mec.state)
 
     # 更新每辆车邻居表
     def renew_neighbor(self):
@@ -292,13 +284,14 @@ class Env:
                 time_precess, f = self.compute_precessed(vehicle=vehicle, action=self.actions[i])
                 print("第{}辆车的任务的处理时间:{}s".format(vehicle.id, time_precess))
                 sum_time = time_trans + time_precess
+                print("第{}辆车的任务总时间时间:{}s".format(vehicle.id, sum_time))
                 time_persist = self.compute_persist(vehicle, self.actions[i])
                 print("第{}辆车的任务持续时间：{}s".format(vehicle.id, time_persist))
                 if sum_time > time_persist or sum_time > vehicle.task.max_time:
                     # vehicle.reward.append(-1)
                     self.reward[i].append(-1)
                     self.Reward += -1
-                    print("第{}辆车的任务奖励{}".format(vehicle.id,-1))
+                    print("第{}辆车的任务奖励{}".format(vehicle.id, -1))
                 else:
                     energy = self.compute_energy(vehicle, time_trans, time_precess, f)
                     print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
@@ -387,14 +380,6 @@ class Env:
         # 更新时间
         self.cur_frame = cur_frame
 
-    # 将状态信息放入各自的缓冲池中
-    def push(self, state, actions, next_state):
-        for i, vehicle in enumerate(self.vehicles):
-            if vehicle.task is not None:  # 没有任务不算经验
-                continue
-            exp = Experience(state, actions[i], self.reward[i][-1], next_state)
-            vehicle.buffer.append(exp)
-
     # 执行动作
     def step(self, actions):
         cur_frame = self.cur_frame + 1  # s
@@ -406,4 +391,5 @@ class Env:
         print("时间" + str(cur_frame) + "获得的奖励:" + str(self.Reward))
         self.distribute_task(cur_frame)  # 分配任务
         self.renew_state(cur_frame)  # 更新状态
+        self.cur_frame = cur_frame
         return state, self.actions, self.Reward, self.state

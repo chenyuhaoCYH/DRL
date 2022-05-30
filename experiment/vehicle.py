@@ -77,6 +77,8 @@ class Vehicle:
         # 总奖励
         self.reward = []
 
+        self.get_state()
+
     # 获得位置
     @property
     def get_location(self):
@@ -156,9 +158,14 @@ class Vehicle:
         self.excludeNeighbor_state.append(self.sum_needDeal_task)
         self.excludeNeighbor_state.append(self.len_action)
 
-        # 邻居表  14*数量
+        # 邻居表  7*数量
         for neighbor in self.neighbor:
-            self.state.extend(neighbor.excludeNeighbor_state)
+            self.state.extend(neighbor.loc)
+            self.state.append(neighbor.velocity)
+            self.state.append(neighbor.direction)
+            self.state.append(neighbor.resources)
+            self.state.append(neighbor.sum_needDeal_task)
+            self.state.append(neighbor.len_action)
 
         # 最近mec的状态 6
         if self.mec_lest is not None:

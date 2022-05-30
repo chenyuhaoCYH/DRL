@@ -22,6 +22,8 @@ class MEC:
         self.len_action = 0
         # 当前时间
         self.cur_frame = 0
+        # 当前状态
+        self.get_state()
 
     @property
     def get_x(self):

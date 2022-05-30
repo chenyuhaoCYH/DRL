@@ -6,7 +6,6 @@ import numpy as np
 import torch
 
 from MyErion.model.memory import ExperienceBuffer
-from dqn import DQN
 import torch.optim as optim
 
 sigma = -114  # 噪声dbm

@@ -43,16 +43,21 @@ if __name__ == '__main__':
     # list=[[]]*5
     # print(list)
     for vehicle in vehicles:
-        print("第{}车状态：{}".format(vehicle.id, vehicle.get_state()))
+        print("第{}车状态：{}".format(vehicle.id, vehicle.state))
         print("该车邻居:")
         for i in vehicle.neighbor:
             print(i.id, end="  ")
         print()
 
     # 测试环境运行
-    for i in range(5):
+    for i in range(10):
         action = []
         for j in range(20):
             action.append(np.random.randint(0, 7))
         print(len(action))
-        env.step(action)
+        state, actions, reward, next_state = env.step(action)
+        print("当前状态:", state)
+        print("下一状态:", next_state)
+        print("当前动作:", actions)
+        print("当前奖励:", reward)
+    print(env.Reward)
