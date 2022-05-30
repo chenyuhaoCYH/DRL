@@ -2,6 +2,7 @@ from env import Env
 import numpy as np
 
 if __name__ == '__main__':
+    print()
     env = Env()
     env.reset()
     # 测试找最邻近的mec
@@ -42,14 +43,16 @@ if __name__ == '__main__':
     # list=[[]]*5
     # print(list)
     for vehicle in vehicles:
-        print(vehicle.get_state())
-        print("车邻居的id：" + str(vehicle.id))
+        print("第{}车状态：{}".format(vehicle.id, vehicle.get_state()))
+        print("该车邻居:")
         for i in vehicle.neighbor:
             print(i.id, end="  ")
         print()
 
-    action = []
-    for i in range(50):
-        action.append(np.random.randint(0, 12))
-    print(len(action))
-    env.step(action)
+    # 测试环境运行
+    for i in range(5):
+        action = []
+        for j in range(20):
+            action.append(np.random.randint(0, 7))
+        print(len(action))
+        env.step(action)

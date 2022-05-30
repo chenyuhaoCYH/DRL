@@ -11,7 +11,7 @@ import torch.optim as optim
 
 BrandWidth = 100  # 带宽MHz
 alpha = 0.25  # 信道增益
-Fv = 3  # 车的计算能力
+Fv = 2  # 车的计算能力
 Dv = 50  # 车的最大通信范围
 
 CAPACITY = 20000  # 缓冲池大小
@@ -20,7 +20,7 @@ MAX_NEIGHBOR = 20  # 最大邻居数
 # 网络学习率
 LEARNING_RATE = 1e-4
 
-np.random.seed(2)
+np.random.seed(0)
 
 
 class Vehicle:
@@ -50,7 +50,7 @@ class Vehicle:
         # 此时刻有多少动作选则我
         self.len_action = 0
         # 当前可用资源
-        self.resources = round((1 - np.random.uniform(0.1, 0.6)) * Fv, 2)  # GHz
+        self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
         # 当前任务
         self.task = None
         # 当前任务需要处理的时间
@@ -103,6 +103,7 @@ class Vehicle:
         # 每次有0.7的概率产生任务
         if np.random.random() <= 0.7:
             self.task = Task(self.id)
+            print("第{}辆车产生了任务".format(self.id))
         else:
             self.task = None
 
@@ -167,5 +168,3 @@ class Vehicle:
 
     def __str__(self) -> str:
         return super().__str__()
-
-
