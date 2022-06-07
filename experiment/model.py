@@ -19,7 +19,6 @@ class ModelActor(nn.Module):
             nn.Linear(HID_SIZE, act_size),
             nn.Tanh(),
         )
-        self.logstd = nn.Parameter(torch.zeros(act_size))
 
     def forward(self, x):
         return F.softmax(self.mu(x), dim=0)

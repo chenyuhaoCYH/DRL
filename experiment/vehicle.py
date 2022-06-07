@@ -73,7 +73,7 @@ class Vehicle:
         # self.target_actor3 = None
         # self.optimizer3 = None
         # 缓冲池
-        self.buffer = ExperienceBuffer(capacity=CAPACITY)
+        self.buffer = []  # ExperienceBuffer(capacity=CAPACITY)
         # 总奖励
         self.reward = []
 
@@ -103,7 +103,7 @@ class Vehicle:
     # 产生任务 传入当前时间
     def creat_work(self):
         # 每次有0.7的概率产生任务
-        if np.random.random() <= 0.7:
+        if np.random.random() <= 0.5:
             self.task = Task(self.id)
             print("第{}辆车产生了任务".format(self.id))
         else:

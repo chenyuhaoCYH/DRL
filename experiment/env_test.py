@@ -50,7 +50,7 @@ if __name__ == '__main__':
         print()
 
     # 测试环境运行
-    for i in range(10):
+    for i in range(100):
         action = []
         for j in range(20):
             action.append(np.random.randint(0, 7))

@@ -4,6 +4,8 @@ import time
 from collections import namedtuple
 
 import torch
+import torch.nn.functional as F
+from MyErion.experiment import test_net
 from MyErion.experiment.env import Env
 from MyErion.experiment.memory import ReplayMemory
 import model
@@ -16,7 +18,7 @@ ENV_ID = "computing offloading"
 GAMMA = 0.99
 GAE_LAMBDA = 0.95
 
-TRAJECTORY_SIZE = 2049
+TRAJECTORY_SIZE = 100
 LEARNING_RATE_ACTOR = 1e-5
 LEARNING_RATE_CRITIC = 1e-4
 
@@ -24,11 +26,8 @@ PPO_EPS = 0.2
 PPO_EPOCHES = 10
 PPO_BATCH_SIZE = 64
 
-N = 100
-
-TEST_ITERS = 100000
-Experience = namedtuple('Transition',
-                        ('state', 'action', 'reward', 'next_state'))  # Define a transition tuple
+TEST_ITERS = 10000
+Experience = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'))  # Define a transition tuple
 
 
 # 将list装换成tensor存入缓冲池中
@@ -50,7 +49,7 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
     :param states_v: states tensor
     :return: tuple with advantage numpy array and reference values
     """
-    values_v = net_crt(states_v)
+    values_v = net_crt(torch.tensor(states_v))
     values = values_v.squeeze().data.cpu().numpy()
     # generalized advantage estimator: smoothed version of the advantage
     last_gae = 0.0
@@ -102,8 +101,6 @@ if __name__ == '__main__':
     test_env.reset()
 
     act_state = len(env.vehicles[0].state)
-    print(env.vehicles[0].state)
-    print(act_state)
     act_action = 1 + 1 + len(env.vehicles[0].neighbor)
 
     act_nets = []
@@ -124,24 +121,134 @@ if __name__ == '__main__':
         act_opt = torch.optim.Adam(act_net.parameters(), lr=args.lra)
     crt_opt = torch.optim.Adam(crt_net.parameters(), lr=args.lrc)
 
-    frame_idx = 0
-    trajectory = []
+    step_idx = 0
     best_reward = None
 
     while True:
         action = []
-        frame_idx += 1
-        for i, act_net in enumerate(act_nets):
-            pro = act_net(torch.tensor(env.vehicles[i].state))
-            act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
-            action.append(act[0])
+        step_idx += 1
+
+        with torch.no_grad():
+            for i, act_net in enumerate(act_nets):
+                pro = act_net(torch.tensor(env.vehicles[i].state))
+                act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
+                action.append(act[0])
+
         state, cur_action, reward, next_state = env.step(action)
 
-        push(env, state, action, next_state)
-        if frame_idx % N == 0:
-            pass
-        # print("当前状态", state)
-        # print("当前动作", action)
-        # print("当前平均奖励", reward)
-        # print("下一状态", next_state)
-        # print(env.reward)
+        # 测试
+        if step_idx % TEST_ITERS == 0:
+            ts = time.time()
+            rewards, steps = test_net(act_nets, test_env)
+            print("Test done in %.2f sec, reward %.3f, steps %d" % (
+                time.time() - ts, rewards, steps))
+            writer.add_scalar("test_reward", rewards, step_idx)
+            writer.add_scalar("test_steps", steps, step_idx)
+            if best_reward is None or best_reward < rewards:
+                if best_reward is not None:
+                    print("Best reward updated: %.3f -> %.3f" % (best_reward, rewards))
+                    name = "best_%+.3f_%d.dat" % (rewards, step_idx)
+                    fname = os.path.join(save_path, name)
+                    for i, act_net in enumerate(act_nets):
+                        torch.save(act_net.state_dict(), fname + "{}".format(i))
+                best_reward = rewards
+
+        for i, vehicle in enumerate(env.vehicles):
+            # if vehicle.task is not None:  # 没有任务不算经验
+            #     continue
+            # 存储车经验
+            exp = Experience(env.vehicles_oldstate[i], env.actions[i], env.reward[i][-1], env.vehicles[i].state)
+            vehicle.buffer.append(exp)
+        # 存储系统经验
+        env.buffer.append(Experience(state, cur_action, reward, next_state))
+
+        print("the {} reward:{}".format(step_idx, reward))
+        if step_idx % TRAJECTORY_SIZE != 0:
+            continue
+
+        # print("存储池", env.vehicles[0].buffer[0])
+        # print(len(env.vehicles[0].buffer))
+        traj_states = list(env.vehicles)
+        traj_actions = list(env.vehicles)
+        traj_states_v = list(env.vehicles)
+        traj_actions_v = list(env.vehicles)
+        old_logprob_v = list(env.vehicles)
+
+        traj_statesOfenv = [t.state for t in env.buffer]
+        tarj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
+
+        for i in range(env.num_Vehicles):
+            traj_states[i] = [t.state for t in env.vehicles[i].buffer]
+            traj_actions[i] = [t.action for t in env.vehicles[i].buffer]
+
+            traj_states_v[i] = torch.FloatTensor(traj_states[i])
+            traj_states_v[i] = traj_states_v[i].to(device)
+
+            traj_actions_v[i] = torch.FloatTensor(traj_actions[i])
+            traj_actions_v[i] = traj_actions_v[i].to(device)
+
+            pro_v = act_nets[i](traj_states_v[i])
+            old_logprob_v[i] = torch.sum(torch.log2(pro_v), dim=1)
+
+            env.vehicles[i].buffer = env.vehicles[i].buffer[:-1]
+
+        traj_adv_v, traj_ref_v = calc_adv_ref(env.buffer, crt_net, traj_statesOfenv)
+
+        # normalize advantages
+        traj_adv_v = traj_adv_v - torch.mean(traj_adv_v)
+        traj_adv_v /= torch.std(traj_adv_v)
+
+        # drop last entry from the trajectory, an our adv and ref value calculated without it
+        old_logprob_v = old_logprob_v[:-1].detach()
+
+        sum_loss_value = [0.0 for i in env.vehicles]
+        sum_loss_policy = [0.0 for i in env.vehicles]
+        count_steps = 0
+
+        for epoch in range(PPO_EPOCHES):
+            for batch_ofs in range(0, len(env.vehicles[0].buffer),
+                                   PPO_BATCH_SIZE):
+                batch_l = batch_ofs + PPO_BATCH_SIZE
+
+                states_e = traj_statesOfenv[batch_ofs:batch_l]
+                actions_v = traj_actions_v[batch_ofs:batch_l]
+                batch_adv_v = traj_adv_v[batch_ofs:batch_l]
+                batch_adv_v = batch_adv_v.unsqueeze(-1)
+                batch_ref_v = traj_ref_v[batch_ofs:batch_l]
+                batch_old_logprob_v = old_logprob_v[batch_ofs:batch_l]
+
+                # critic training
+                crt_opt.zero_grad()
+                value_v = crt_net(states_e)
+                loss_value_v = F.mse_loss(
+                    value_v.squeeze(-1), batch_ref_v)
+                loss_value_v.backward()
+                crt_opt.step()
+
+                # actor training
+                for i in env.vehicles:
+                    states_v = traj_states_v[i][batch_ofs:batch_l]
+                    act_nets[i].zero_grad()
+                    pro_v = act_nets[i](states_v)
+                    logprob_pi_v = torch.sum(torch.log2(pro_v), dim=1)
+                    ratio_v = torch.exp(
+                        logprob_pi_v - batch_old_logprob_v)
+                    surr_obj_v = batch_adv_v * ratio_v
+                    c_ratio_v = torch.clamp(ratio_v,
+                                            1.0 - PPO_EPS,
+                                            1.0 + PPO_EPS)
+                    clipped_surr_v = batch_adv_v * c_ratio_v
+                    loss_policy_v = -torch.min(
+                        surr_obj_v, clipped_surr_v).mean()
+                    loss_policy_v.backward()
+                    act_nets[i].step()
+                    sum_loss_value[i] += loss_value_v.item()
+                    sum_loss_policy[i] += loss_policy_v.item()
+
+                    env.vehicles[i].buffer.clear()
+                count_steps += 1
+        writer.add_scalar("advantage", traj_adv_v.mean().item(), step_idx)
+        writer.add_scalar("values", traj_ref_v.mean().item(), step_idx)
+        for i in env.num_Vehicles:
+            writer.add_scalar("loss_policy{}".format(i), sum_loss_policy[i] / count_steps, step_idx)
+            writer.add_scalar("loss_value{}".format(i), sum_loss_value[i] / count_steps, step_idx)
