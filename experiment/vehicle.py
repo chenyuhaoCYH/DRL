@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
+import random
 
 import numpy as np
 import torch
 import ptan
 
-from MyErion.experiment.task import Task
-from MyErion.model.memory import ExperienceBuffer
-from model import ModelActor
-import torch.optim as optim
+from task import Task
 
-BrandWidth = 100  # 带宽MHz
-alpha = 0.25  # 信道增益
-Fv = 2  # 车的计算能力
 Dv = 50  # 车的最大通信范围
+Fv = 2  # 车最大计算能力
+alpha = 0.25
+MAX_TASK = 20  # 任务队列最大长度
 
 CAPACITY = 20000  # 缓冲池大小
 TASK_DISTRIBUTE = 4  # 可分的任务段数
@@ -25,7 +23,7 @@ np.random.seed(0)
 
 class Vehicle:
     # 位置：x，y 速度、方向：-1左，1右
-    def __init__(self, id, loc_x, loc_y, direction, velocity=5):
+    def __init__(self, id, loc_x, loc_y, direction, velocity=20):
         # 车的位置信息
         self.loc_x = loc_x
         self.loc_y = loc_y
@@ -43,7 +41,7 @@ class Vehicle:
         self.mec_lest = None
         # 当前时间
         self.cur_frame = 0
-        # 接受的任务的列表  因为任务三优先级高所以分开处理
+        # 接受的任务的列表
         self.accept_task = []
         # 接受任务的数量
         self.sum_needDeal_task = 0
@@ -51,31 +49,24 @@ class Vehicle:
         self.len_action = 0
         # 当前可用资源
         self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
-        # 当前任务
+        # 当前正在传输的任务
         self.task = None
-        # 当前任务需要处理的时间
-        self.needProcessedTime = 0
+        # 任务队列
+        self.total_task = []
+        # 任务队列的长度
+        self.len_task = len(self.total_task)
         # 当前状态信息
-        self.state = []
+        self.otherState = []
+        # 当前任务队列状态
+        self.taskState = []
         # 去除邻居的状态信息用于邻居车观察和全局critic的处理
         self.excludeNeighbor_state = []
-        # # 网络 三个网络对应三个任务
-        # # 任务一
-        # self.actor1 = None
-        # self.target_actor1 = None
-        # self.optimizer1 = None
-        # # 任务二
-        # self.actor2 = None
-        # self.target_actor2 = None
-        # self.optimizer2 = None
-        # # 任务三
-        # self.actor3 = None
-        # self.target_actor3 = None
-        # self.optimizer3 = None
         # 缓冲池
         self.buffer = []  # ExperienceBuffer(capacity=CAPACITY)
         # 总奖励
         self.reward = []
+        # 是否执行动作
+        self.flag = True
 
         self.get_state()
 
@@ -101,75 +92,71 @@ class Vehicle:
         return self.loc_y
 
     # 产生任务 传入当前时间
-    def creat_work(self):
-        # 每次有0.7的概率产生任务
-        if np.random.random() <= 0.5:
-            self.task = Task(self.id)
-            print("第{}辆车产生了任务".format(self.id))
+    def create_work(self):
+        # 每次有0.5的概率产生任务
+        if random.random() < 0.5:
+            if self.len_task < MAX_TASK:  # 队列不满
+                task = Task(self.id, self.cur_frame)
+                self.total_task.append(task)
+                self.len_task += 1
+                print("第{}辆车产生了任务".format(self.id))
+            else:
+                print("第{}辆车任务队列已满".format(self.id))
         else:
-            self.task = None
-
-    # # 初始化当前网络
-    # def init_network(self, state: int, action: int):
-    #     self.actor1 = ModelActor(state, action)
-    #     self.actor2 = ModelActor(state, action)
-    #     self.actor3 = ModelActor(state, action)
-    #
-    #     self.target_actor1 = ptan.agent.TargetNet(self.actor1)
-    #     self.target_actor2 = ptan.agent.TargetNet(self.actor2)
-    #     self.target_actor3 = ptan.agent.TargetNet(self.actor3)
-    #
-    #     # 设置优化器
-    #     self.optimizer1 = optim.Adam(params=self.actor1.parameters(), lr=LEARNING_RATE)
-    #     self.optimizer1 = optim.Adam(params=self.actor2.parameters(), lr=LEARNING_RATE)
-    #     self.optimizer1 = optim.Adam(params=self.actor3.parameters(), lr=LEARNING_RATE)
+            pass
 
     # 获得状态
-    # 维度：[id,loc_x,loc_y,velocity,direction,[neighbor.excludeNeighbor_state]8*20,resources,I,C,T,[type]*3,
-    # length_task1and2,length_task3]
     def get_state(self):
-        self.state = []
+        self.otherState = []
         self.excludeNeighbor_state = []
-        # 位置信息  5
-        self.state.extend(self.loc)
-        self.state.append(self.velocity)
-        self.state.append(self.direction)
+        self.taskState = []
+
+        # 位置信息  4
+        self.otherState.extend(self.loc)
+        self.otherState.append(self.velocity)
+        self.otherState.append(self.direction)
         self.excludeNeighbor_state.extend(self.loc)
         self.excludeNeighbor_state.append(self.velocity)
         self.excludeNeighbor_state.append(self.direction)
-        # 当前可用资源 1
-        self.state.append(self.resources)
-        self.excludeNeighbor_state.append(self.resources)
-        # 任务信息  3
-        if self.task is not None:
-            self.state.append(self.task.size)
-            self.excludeNeighbor_state.append(self.task.size)
-            self.state.append(self.task.cycle)
-            self.excludeNeighbor_state.append(self.task.cycle)
-            self.state.append(self.task.max_time)
-            self.excludeNeighbor_state.append(self.task.max_time)
-        else:
-            self.state.extend([0, 0, 0])
-            self.excludeNeighbor_state.extend([0, 0, 0])
 
-        # 需要处理的任务量   2
-        self.state.append(self.sum_needDeal_task)
-        self.state.append(self.len_action)
+        # 资源信息（可用资源、正在处理的任务量、正在传输的任务量）
+        self.otherState.append(self.resources)
+        self.excludeNeighbor_state.append(self.resources)
+        self.otherState.append(self.sum_needDeal_task)
+        self.otherState.append(self.len_action)
         self.excludeNeighbor_state.append(self.sum_needDeal_task)
         self.excludeNeighbor_state.append(self.len_action)
 
+        # 正在传输的任务信息
+        if self.task is not None:
+            self.otherState.append(self.task.need_trans_size)
+            self.excludeNeighbor_state.append(self.task.need_trans_size)
+        else:
+            self.otherState.append(0)
+            self.excludeNeighbor_state.append(0)
+        self.otherState.append(self.len_task)  # 当前队列长度
+        self.excludeNeighbor_state.append(self.len_task)
+
         # 邻居表  7*数量
         for neighbor in self.neighbor:
-            self.state.extend(neighbor.loc)
-            self.state.append(neighbor.velocity)
-            self.state.append(neighbor.direction)
-            self.state.append(neighbor.resources)
-            self.state.append(neighbor.sum_needDeal_task)
-            self.state.append(neighbor.len_action)
+            self.otherState.extend(neighbor.loc)  # 位置
+            self.otherState.append(neighbor.velocity)  # 速度
+            self.otherState.append(neighbor.direction)  # 方向
+            self.otherState.append(neighbor.resources)  # 可用资源
+            self.otherState.append(neighbor.sum_needDeal_task)  # 正在处理的任务量
+            self.otherState.append(neighbor.len_action)  # 正在接受的任务量
 
         # 最近mec的状态 6
         if self.mec_lest is not None:
-            self.state.extend(self.mec_lest.get_state())
+            self.otherState.extend(self.mec_lest.get_state())
+
+        # 任务状态信息
+        for i in range(MAX_TASK):
+            if i < self.len_task:
+                task = self.total_task[i]
+                self.taskState.append([task.create_time, task.need_trans_size, task.need_precess_cycle, task.max_time])
+            else:
+                self.taskState.append([0, 0, 0, 0])
 
         return self.excludeNeighbor_state
 

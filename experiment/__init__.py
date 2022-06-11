@@ -1,7 +1,7 @@
 import ptan
 import numpy as np
 import torch
-import math
+from torch.distributions.categorical import Categorical
 
 from MyErion.experiment.env import Env
 
@@ -15,10 +15,10 @@ def test_net(nets, env: Env, count=10):
             action = []
             with torch.no_grad():
                 for vehicle in env.vehicles:
-                    state = torch.tensor(vehicle.state)
-                    pro = nets[vehicle.id](state)
-                    act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
-                    action.append(act[0])
+                    state = torch.tensor(vehicle.otherState)
+                    _, pro = nets[vehicle.id](state)
+                    act = Categorical.sample(pro)
+                    action.append(act.item())
             _, _, reward, _ = env.step(action)
             rewards += reward
             steps += 1

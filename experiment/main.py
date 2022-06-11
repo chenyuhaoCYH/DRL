@@ -5,6 +5,7 @@ from collections import namedtuple
 
 import torch
 import torch.nn.functional as F
+from torch.distributions.categorical import Categorical
 from MyErion.experiment import test_net
 from MyErion.experiment.env import Env
 from MyErion.experiment.memory import ReplayMemory
@@ -18,7 +19,7 @@ ENV_ID = "computing offloading"
 GAMMA = 0.99
 GAE_LAMBDA = 0.95
 
-TRAJECTORY_SIZE = 100
+TRAJECTORY_SIZE = 65
 LEARNING_RATE_ACTOR = 1e-5
 LEARNING_RATE_CRITIC = 1e-4
 
@@ -55,15 +56,11 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
     last_gae = 0.0
     result_adv = []
     result_ref = []
-    for val, next_val, (exp,) in zip(reversed(values[:-1]),
-                                     reversed(values[1:]),
-                                     reversed(trajectory[:-1])):
-        if exp.done:
-            delta = exp.reward - val
-            last_gae = delta
-        else:
-            delta = exp.reward + GAMMA * next_val - val
-            last_gae = delta + GAMMA * GAE_LAMBDA * last_gae
+    for val, next_val, exp in zip(reversed(values[:-1]),
+                                  reversed(values[1:]),
+                                  reversed(trajectory[:-1])):
+        delta = exp.reward + GAMMA * next_val - val
+        last_gae = delta + GAMMA * GAE_LAMBDA * last_gae
         result_adv.append(last_gae)
         result_ref.append(last_gae + val)
 
@@ -100,7 +97,7 @@ if __name__ == '__main__':
     test_env = Env()
     test_env.reset()
 
-    act_state = len(env.vehicles[0].state)
+    act_state = len(env.vehicles[0].otherState)
     act_action = 1 + 1 + len(env.vehicles[0].neighbor)
 
     act_nets = []
@@ -108,7 +105,7 @@ if __name__ == '__main__':
         act_net = model.ModelActor(act_state, act_action)
         act_nets.append(act_net)
 
-    crt_net = model.ModelCritic(len(env.state))
+    crt_net = model.ModelCritic(len(env.otherState))
     for act_net in act_nets:
         print(act_net)
     print(crt_net)
@@ -119,6 +116,7 @@ if __name__ == '__main__':
     act_opts = []
     for act_net in act_nets:
         act_opt = torch.optim.Adam(act_net.parameters(), lr=args.lra)
+        act_opts.append(act_opt)
     crt_opt = torch.optim.Adam(crt_net.parameters(), lr=args.lrc)
 
     step_idx = 0
@@ -130,9 +128,12 @@ if __name__ == '__main__':
 
         with torch.no_grad():
             for i, act_net in enumerate(act_nets):
-                pro = act_net(torch.tensor(env.vehicles[i].state))
-                act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
-                action.append(act[0])
+                _, pro = act_net(torch.tensor(env.vehicles[i].otherState))
+                # print(pro)
+                # act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
+                act = pro.sample()
+                # print(act)
+                action.append(act.item())
 
         state, cur_action, reward, next_state = env.step(action)
 
@@ -157,7 +158,7 @@ if __name__ == '__main__':
             # if vehicle.task is not None:  # 没有任务不算经验
             #     continue
             # 存储车经验
-            exp = Experience(env.vehicles_oldstate[i], env.actions[i], env.reward[i][-1], env.vehicles[i].state)
+            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.reward[i][-1], env.vehicles[i].otherState)
             vehicle.buffer.append(exp)
         # 存储系统经验
         env.buffer.append(Experience(state, cur_action, reward, next_state))
@@ -168,17 +169,17 @@ if __name__ == '__main__':
 
         # print("存储池", env.vehicles[0].buffer[0])
         # print(len(env.vehicles[0].buffer))
-        traj_states = list(env.vehicles)
-        traj_actions = list(env.vehicles)
-        traj_states_v = list(env.vehicles)
-        traj_actions_v = list(env.vehicles)
-        old_logprob_v = list(env.vehicles)
+        traj_states = [[] for _ in range(env.num_Vehicles)]
+        traj_actions = [[] for _ in range(env.num_Vehicles)]
+        traj_states_v = [[] for _ in range(env.num_Vehicles)]
+        traj_actions_v = [[] for _ in range(env.num_Vehicles)]
+        old_logprob_v = [[] for _ in range(env.num_Vehicles)]
 
-        traj_statesOfenv = [t.state for t in env.buffer]
+        traj_statesOfenv = [t.otherState for t in env.buffer]
         tarj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
 
         for i in range(env.num_Vehicles):
-            traj_states[i] = [t.state for t in env.vehicles[i].buffer]
+            traj_states[i] = [t.otherState for t in env.vehicles[i].buffer]
             traj_actions[i] = [t.action for t in env.vehicles[i].buffer]
 
             traj_states_v[i] = torch.FloatTensor(traj_states[i])
@@ -187,10 +188,11 @@ if __name__ == '__main__':
             traj_actions_v[i] = torch.FloatTensor(traj_actions[i])
             traj_actions_v[i] = traj_actions_v[i].to(device)
 
-            pro_v = act_nets[i](traj_states_v[i])
-            old_logprob_v[i] = torch.sum(torch.log2(pro_v), dim=1)
-
-            env.vehicles[i].buffer = env.vehicles[i].buffer[:-1]
+            _, pro_v = act_nets[i](traj_states_v[i])
+            action = pro_v.sample()
+            # ans=torch.sum(pro_v,dim=1)
+            # print(ans.data)
+            old_logprob_v[i] = Categorical.log_prob(pro_v, action)
 
         traj_adv_v, traj_ref_v = calc_adv_ref(env.buffer, crt_net, traj_statesOfenv)
 
@@ -199,40 +201,49 @@ if __name__ == '__main__':
         traj_adv_v /= torch.std(traj_adv_v)
 
         # drop last entry from the trajectory, an our adv and ref value calculated without it
-        old_logprob_v = old_logprob_v[:-1].detach()
+        env.buffer = env.buffer[:-1]
+        for i in range(env.num_Vehicles):
+            env.vehicles[i].buffer[i] = env.vehicles[i].buffer[i][:-1]
+            old_logprob_v[i] = old_logprob_v[i][:-1].detach()
 
         sum_loss_value = [0.0 for i in env.vehicles]
         sum_loss_policy = [0.0 for i in env.vehicles]
         count_steps = 0
 
         for epoch in range(PPO_EPOCHES):
-            for batch_ofs in range(0, len(env.vehicles[0].buffer),
+            for batch_ofs in range(0, len(env.buffer),
                                    PPO_BATCH_SIZE):
                 batch_l = batch_ofs + PPO_BATCH_SIZE
 
-                states_e = traj_statesOfenv[batch_ofs:batch_l]
-                actions_v = traj_actions_v[batch_ofs:batch_l]
+                states_e = tarj_statesOfenv_v[batch_ofs:batch_l]
                 batch_adv_v = traj_adv_v[batch_ofs:batch_l]
                 batch_adv_v = batch_adv_v.unsqueeze(-1)
                 batch_ref_v = traj_ref_v[batch_ofs:batch_l]
-                batch_old_logprob_v = old_logprob_v[batch_ofs:batch_l]
+
+                actions_v = [[] for _ in range(env.num_Vehicles)]
+                states_v = [[] for _ in range(env.num_Vehicles)]
+                batch_old_logprob_v = [[] for _ in range(env.num_Vehicles)]
 
                 # critic training
                 crt_opt.zero_grad()
                 value_v = crt_net(states_e)
+                value_v = value_v.squeeze()
                 loss_value_v = F.mse_loss(
-                    value_v.squeeze(-1), batch_ref_v)
+                    value_v, batch_ref_v)
                 loss_value_v.backward()
                 crt_opt.step()
 
                 # actor training
-                for i in env.vehicles:
-                    states_v = traj_states_v[i][batch_ofs:batch_l]
-                    act_nets[i].zero_grad()
-                    pro_v = act_nets[i](states_v)
-                    logprob_pi_v = torch.sum(torch.log2(pro_v), dim=1)
+                for i in range(env.num_Vehicles):
+                    batch_old_logprob_v[i] = old_logprob_v[i][batch_ofs:batch_l]
+                    states_v[i] = traj_states_v[i][batch_ofs:batch_l]
+                    actions_v[i] = traj_actions_v[i][batch_ofs:batch_l]
+
+                    act_opts[i].zero_grad()
+                    _, pro_v = act_nets[i](states_v[i])
+                    logprob_pi_v = Categorical.log_prob(pro_v, actions_v[i])
                     ratio_v = torch.exp(
-                        logprob_pi_v - batch_old_logprob_v)
+                        logprob_pi_v - batch_old_logprob_v[i])
                     surr_obj_v = batch_adv_v * ratio_v
                     c_ratio_v = torch.clamp(ratio_v,
                                             1.0 - PPO_EPS,
@@ -241,14 +252,18 @@ if __name__ == '__main__':
                     loss_policy_v = -torch.min(
                         surr_obj_v, clipped_surr_v).mean()
                     loss_policy_v.backward()
-                    act_nets[i].step()
+                    act_opts[i].step()
+
                     sum_loss_value[i] += loss_value_v.item()
                     sum_loss_policy[i] += loss_policy_v.item()
 
-                    env.vehicles[i].buffer.clear()
-                count_steps += 1
+                    count_steps += 1
+        for i in range(env.num_Vehicles):
+            env.vehicles[i].buffer.clear()
+        env.buffer.clear()
+
         writer.add_scalar("advantage", traj_adv_v.mean().item(), step_idx)
         writer.add_scalar("values", traj_ref_v.mean().item(), step_idx)
-        for i in env.num_Vehicles:
+        for i in range(env.num_Vehicles):
             writer.add_scalar("loss_policy{}".format(i), sum_loss_policy[i] / count_steps, step_idx)
             writer.add_scalar("loss_value{}".format(i), sum_loss_value[i] / count_steps, step_idx)

@@ -239,7 +239,7 @@ class Env:
         self.renew_resources(cur_frame)
         for vehicle in self.vehicles:
             # 产生任务
-            vehicle.creat_work()
+            vehicle.create_work()
             # 更新资源已经接受的任务信息
             self.state.extend(vehicle.get_state())
         for mec in self.MECs:

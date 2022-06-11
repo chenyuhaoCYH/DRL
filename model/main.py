@@ -26,7 +26,7 @@ def save_experience(state, action, reward, next_state, memory: ReplayMemory):
 
 # 优化模型
 def optimize_model(batch, vehicle: Vehicle):
-    state = torch.cat(batch.state)
+    state = torch.cat(batch.otherState)
     reward = torch.cat(batch.reward)
     action = torch.cat(batch.action)
     next_state = torch.cat(batch.next_state)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     env.reset()
     for i in range(10):
         run_episodes(env, memory)
-        print(env.vehicles[0].state)
+        print(env.vehicles[0].otherState)
 
     # transitions = memory.sample(3)
     # batch = Experience(*zip(*transitions))

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from torch.distributions.categorical import Categorical
 
 HID_SIZE = 64
 
@@ -21,7 +22,9 @@ class ModelActor(nn.Module):
         )
 
     def forward(self, x):
-        return F.softmax(self.mu(x), dim=0)
+        pro = F.softmax(self.mu(x), dim=-1)
+        # print(pro)
+        return pro, Categorical(pro)
 
 
 class ModelCritic(nn.Module):

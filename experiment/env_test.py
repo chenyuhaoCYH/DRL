@@ -14,7 +14,13 @@ if __name__ == '__main__':
     #     print(vehicle.mec_lest.get_location, end="  ")
 
     # 测试网络节点数
+    task = np.array(env.taskState)
+    print(task.size)
+    print(task.shape)
     vehicles = env.vehicles
+    for vehicle in vehicles:
+        for i in range(10):
+            vehicle.create_work()
     # print(vehicles[0].actor1)
     # print(vehicles[0].target_actor1)
     # print(vehicles[0].state)
@@ -43,16 +49,16 @@ if __name__ == '__main__':
     # list=[[]]*5
     # print(list)
     for vehicle in vehicles:
-        print("第{}车状态：{}".format(vehicle.id, vehicle.state))
+        print("第{}车状态：{}".format(vehicle.id, vehicle.otherState))
         print("该车邻居:")
         for i in vehicle.neighbor:
             print(i.id, end="  ")
         print()
 
     # 测试环境运行
-    for i in range(100):
+    for i in range(10000):
         action = []
-        for j in range(20):
+        for j in range(40):
             action.append(np.random.randint(0, 7))
         print(len(action))
         state, actions, reward, next_state = env.step(action)
@@ -60,4 +66,5 @@ if __name__ == '__main__':
         print("下一状态:", next_state)
         print("当前动作:", actions)
         print("当前奖励:", reward)
+        print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
     print(env.Reward)
