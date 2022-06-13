@@ -18,9 +18,6 @@ if __name__ == '__main__':
     print(task.size)
     print(task.shape)
     vehicles = env.vehicles
-    for vehicle in vehicles:
-        for i in range(10):
-            vehicle.create_work()
     # print(vehicles[0].actor1)
     # print(vehicles[0].target_actor1)
     # print(vehicles[0].state)
@@ -61,10 +58,12 @@ if __name__ == '__main__':
         for j in range(40):
             action.append(np.random.randint(0, 7))
         print(len(action))
-        state, actions, reward, next_state = env.step(action)
+        state, taskState, vehicleState, next_state, reward, vehicleReward = env.step(action)
         print("当前状态:", state)
         print("下一状态:", next_state)
-        print("当前动作:", actions)
+        print("车状态:", vehicleState)
+        print("任务状态", taskState)
         print("当前奖励:", reward)
+        print("每个奖励,", vehicleReward)
         print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
     print(env.Reward)

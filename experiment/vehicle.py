@@ -8,7 +8,7 @@ import ptan
 from task import Task
 
 Dv = 50  # 车的最大通信范围
-Fv = 2  # 车最大计算能力
+Fv = 400  # 车最大计算能力  MHZ
 alpha = 0.25
 MAX_TASK = 20  # 任务队列最大长度
 
@@ -51,6 +51,8 @@ class Vehicle:
         self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
         # 当前正在传输的任务
         self.task = None
+        # 当前处理的任务
+        self.cur_task = None
         # 任务队列
         self.total_task = []
         # 任务队列的长度
@@ -65,8 +67,8 @@ class Vehicle:
         self.buffer = []  # ExperienceBuffer(capacity=CAPACITY)
         # 总奖励
         self.reward = []
-        # 是否执行动作
-        self.flag = True
+        # 任务溢出的数量
+        self.overflow = 0
 
         self.get_state()
 
@@ -96,14 +98,14 @@ class Vehicle:
         # 每次有0.5的概率产生任务
         if random.random() < 0.5:
             if self.len_task < MAX_TASK:  # 队列不满
-                task = Task(self.id, self.cur_frame)
+                task = Task(self, self.cur_frame)
                 self.total_task.append(task)
                 self.len_task += 1
                 print("第{}辆车产生了任务".format(self.id))
+                self.overflow = 0
             else:
                 print("第{}辆车任务队列已满".format(self.id))
-        else:
-            pass
+                self.overflow += 1
 
     # 获得状态
     def get_state(self):

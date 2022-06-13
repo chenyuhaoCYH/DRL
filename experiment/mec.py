@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 RANGE_MEC = 200  # MEC通信范围
-RESOURCE = 20  # 可用资源  GHz
+RESOURCE = 2000  # 可用资源  MHz
 
 
 # 边缘服务器

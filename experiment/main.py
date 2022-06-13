@@ -59,7 +59,7 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
     for val, next_val, exp in zip(reversed(values[:-1]),
                                   reversed(values[1:]),
                                   reversed(trajectory[:-1])):
-        delta = exp.reward + GAMMA * next_val - val
+        delta = exp.vehicleReward + GAMMA * next_val - val
         last_gae = delta + GAMMA * GAE_LAMBDA * last_gae
         result_adv.append(last_gae)
         result_ref.append(last_gae + val)
@@ -74,7 +74,7 @@ def push(env, state, actions, next_state):
     for i, vehicle in enumerate(env.vehicles):
         if vehicle.task is not None:  # 没有任务不算经验
             continue
-        exp = Experience(state, actions[i], env.reward[i][-1], next_state)
+        exp = Experience(state, actions[i], env.vehicleReward[i][-1], next_state)
         vehicle.buffer.append(exp)
 
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
             # if vehicle.task is not None:  # 没有任务不算经验
             #     continue
             # 存储车经验
-            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.reward[i][-1], env.vehicles[i].otherState)
+            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.vehicleReward[i][-1], env.vehicles[i].otherState)
             vehicle.buffer.append(exp)
         # 存储系统经验
         env.buffer.append(Experience(state, cur_action, reward, next_state))
