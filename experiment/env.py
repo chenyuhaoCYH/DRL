@@ -163,12 +163,8 @@ class Env:
             action = self.taskActions[i]
             # 获得要传输的任务
             # 大于当前任务长度
-            if action >= vehicle.len_task:
-                # 非法动作 给予惩罚项
-                self.reward[vehicle.id] += Ki
-                continue
             # 大于可选范围（默认选择第一个）
-            elif action > MAX_TASK:
+            if action >= vehicle.len_task:
                 task = vehicle.total_task[0]
             else:
                 task = vehicle.total_task[action]
