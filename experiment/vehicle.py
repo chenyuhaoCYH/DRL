@@ -48,7 +48,7 @@ class Vehicle:
         # 此时刻有多少动作选则我
         self.len_action = 0
         # 当前可用资源
-        self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
+        self.resources = 400  # round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
         # 当前正在传输的任务
         self.task = None
         # 当前处理的任务

@@ -25,7 +25,7 @@ sigma = -114  # 噪声dbm
 POWER = 23  # 功率w dbm
 BrandWidth_Mec = 100  # MHz
 
-gama = 1.25 * (10 ** -6)  # 能量系数
+gama = 1.25 * (10 ** -7)  # 能量系数
 a = 0.6  # 奖励中时间占比
 b = 0.4  # 奖励中能量占比
 
@@ -38,9 +38,8 @@ np.random.seed(2)
 
 class Env:
     def __init__(self, num_Vehicles=N, num_MECs=K):
-        # 基站天线高度
+        # 衰弱设置
         self.bsHeight = 25
-        # 车辆天线高度
         self.vehHeight = 1.5
         self.stdV2I = 8
         self.stdV2V = 3
@@ -84,7 +83,8 @@ class Env:
     # 添加车辆
     def add_new_vehicles(self, id, loc_x, loc_y, direction, velocity):
         vehicle = Vehicle(id=id, loc_x=loc_x, loc_y=loc_y, direction=direction, velocity=velocity)
-        vehicle.create_work()  # 初始化任务
+        for i in range(10):
+            vehicle.create_work()  # 初始化任务
         self.vehicles.append(vehicle)
 
     # 初始化/重置环境
@@ -174,6 +174,7 @@ class Env:
                 task = vehicle.total_task[action]
 
             # 初始化任务信息
+            # 获得传输目标
             aim = self.get_aim(vehicle, self.offloadingActions[i])
             task.aim = aim
 
@@ -280,15 +281,9 @@ class Env:
             if task.need_trans_size <= time * rate:
                 # 表示当前任务能够卸载完成 可以继续卸载
                 self.vehicles[vehicle.id].task = None
-                print("第{}车任务传输完成".format(vehicle.id))
-                # mec
-                if type(aim) == MEC:
-                    self.vehicles[vehicle.id].mec_lest.accept_task.append(task)
-                    aim.len_action -= 1
-                # neighbor vehicle
-                else:
-                    aim.accept_task.append(task)
-                    aim.len_action -= 1
+                print("第{}车任务传输完成,传输花费{} s".format(vehicle.id, task.trans_time))
+                aim.accept_task.append(task)
+                aim.len_action -= 1
             else:
                 task.need_trans_size -= time * rate
                 need_task.append(task)
@@ -302,12 +297,12 @@ class Env:
             mec.sum_needDeal_task = len(mec.accept_task)
 
     # 获得奖励
-    def get_reward(self, task):  # 获得奖励
+    def get_reward(self, task, cur_frame):  # 获得奖励
         reward = 0
         aim = task.aim
         vehicle = task.vehicle
         # print("第{}辆车的任务的处理时间:{}s".format(vehicle.id, time_precess))
-        sum_time = self.cur_frame - task.create_time
+        sum_time = cur_frame - task.create_time
         # 总时间大于最大忍受时间
         if sum_time > task.max_time:
             reward += Ki
@@ -315,7 +310,7 @@ class Env:
         else:
             energy = self.compute_energy(task.trans_time) + task.energy
             # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
-            reward += -0.5 * (a * sum_time + b * energy+task.vehicle.overflow) - Kq * vehicle.len_task
+            reward += -0.5 * (a * sum_time + b * energy + task.vehicle.overflow) - Kq * vehicle.len_task
             # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
         return reward
 
@@ -343,7 +338,7 @@ class Env:
                         removed_task.append(task)
                 # 删除已经处理完的任务并为其计算奖励
                 for task in removed_task:
-                    self.reward[task.vehicle.id] += self.get_reward(task)
+                    self.reward[task.vehicle.id] += self.get_reward(task, cur_frame)
                     total_task.remove(task)
 
         # 更新mec的资源信息
@@ -364,7 +359,7 @@ class Env:
                 # 删除已经处理完的任务
                 for task in removed_task:
                     # 计算给任务的奖励
-                    self.reward[task.vehicle.id] += self.get_reward(task)
+                    self.reward[task.vehicle.id] += self.get_reward(task, cur_frame)
                     total_task.remove(task)
 
         # 分配任务信息
@@ -390,8 +385,6 @@ class Env:
 
         # 更新车位置信息
         self.renew_locs(cur_frame)
-        # 更新车和mec的资源及任务列表信息
-        self.renew_resources(cur_frame)
         # 更新邻居表
         self.renew_neighbor()
         # 更新最近mec
@@ -429,11 +422,10 @@ class Env:
         taskState = self.taskState
 
         self.renew_resources(cur_frame)
-
         self.renew_state(cur_frame)  # 更新状态
 
         # 更新时间
         self.cur_frame = cur_frame
-        print("当前有{}个任务没完成".format(len(self.need_trans_task)))
+        print("当前有{}个任务没传输完成完成".format(len(self.need_trans_task)))
 
         return otherState, taskState, self.vehicles_state, self.otherState, self.Reward, self.reward
