@@ -1,5 +1,6 @@
 from env import Env
 import numpy as np
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     print()
@@ -67,3 +68,7 @@ if __name__ == '__main__':
         print("每个奖励,", vehicleReward)
         print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
     print(env.Reward)
+
+    for i in range(env.num_Vehicles):
+        plt.plot(range(0, len(env.vehicleReward[i][::50], )), env.vehicleReward[i][::50])
+        plt.show()

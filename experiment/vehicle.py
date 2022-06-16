@@ -7,8 +7,8 @@ import ptan
 
 from task import Task
 
-Dv = 50  # 车的最大通信范围
-Fv = 400  # 车最大计算能力  MHZ
+Dv = 100  # 车的最大通信范围
+Fv = 1000  # 车最大计算能力  MHZ
 alpha = 0.25
 MAX_TASK = 20  # 任务队列最大长度
 
@@ -48,7 +48,7 @@ class Vehicle:
         # 此时刻有多少动作选则我
         self.len_action = 0
         # 当前可用资源
-        self.resources = 400  # round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
+        self.resources = Fv # round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
         # 当前正在传输的任务
         self.task = None
         # 当前处理的任务

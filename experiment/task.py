@@ -19,7 +19,7 @@ class Task:
         # MB
         self.size = random.randint(1, 3)
         # cycle/byte
-        self.cycle = np.random.randint(100, 150)
+        self.cycle = np.random.randint(100, 3200)
         # s  最大容忍时间
         self.max_time = self.size * self.cycle / (5 * Fv)
         # s 还剩余多少未传输完成

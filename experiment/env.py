@@ -22,10 +22,10 @@ MAX_NEIGHBOR = 5  # 最大邻居数
 CAPACITY = 20000  # 缓冲池大小
 
 sigma = -114  # 噪声dbm
-POWER = 23  # 功率w dbm
-BrandWidth_Mec = 100  # MHz
+POWER = 23  # 功率 dbm
+BrandWidth = 100  # MHz
 
-gama = 1.25 * (10 ** -7)  # 能量系数
+gama = 1.25 * (10 ** -8)  # 能量系数
 a = 0.6  # 奖励中时间占比
 b = 0.4  # 奖励中能量占比
 
@@ -229,9 +229,9 @@ class Env:
         power = np.power(10, (POWER + fade) / 10)
         sigma_w = np.power(10, sigma / 10)
         sign = power / sigma_w
-        SNR = (BrandWidth_Mec / self.num_Vehicles) * np.log2(1 + sign)
-        print("第{}辆车速率:".format(vehicle.id), SNR / 8)
-        return SNR / 8
+        SNR = (BrandWidth / self.num_Vehicles) * np.log2(1 + sign)
+        print("第{}辆车速率:".format(vehicle.id), SNR / 80)
+        return SNR / 80
 
     # 计算两物体持续时间
     def compute_persist(self, vehicle: Vehicle, aim):
@@ -300,14 +300,10 @@ class Env:
         # print("第{}辆车的任务的处理时间:{}s".format(vehicle.id, time_precess))
         sum_time = cur_frame - task.create_time
         # 总时间大于最大忍受时间
-        if sum_time > task.max_time:
-            reward += Ki
-        # print("第{}辆车的任务总时间时间:{}s".format(vehicle.id, sum_time))
-        else:
-            energy = self.compute_energy(task.trans_time) + task.energy
-            # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
-            reward += -0.5 * (a * sum_time + b * energy + task.vehicle.overflow) - Kq * vehicle.len_task
-            # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
+        energy = self.compute_energy(task.trans_time) + task.energy
+        # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
+        reward += 5/(0.5 * (a * sum_time + b * energy + task.vehicle.overflow) + Kq * vehicle.len_task)
+        # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
         return reward
 
     # 更新资源信息并为处理完的任务计算奖励
@@ -402,7 +398,7 @@ class Env:
 
     # 执行动作
     def step(self, actions):
-        cur_frame = self.cur_frame + 0.1  # s
+        cur_frame = self.cur_frame + 1  # s
         # 分配动作
         lenAction = int(len(actions) / 2)
         self.offloadingActions = actions[0:lenAction]
@@ -423,5 +419,8 @@ class Env:
         # 更新时间
         self.cur_frame = cur_frame
         print("当前有{}个任务没传输完成完成".format(len(self.need_trans_task)))
+
+        for i in range(self.num_Vehicles):
+            self.vehicleReward[i].append(self.reward[i])
 
         return otherState, taskState, self.vehicles_state, self.otherState, self.Reward, self.reward
