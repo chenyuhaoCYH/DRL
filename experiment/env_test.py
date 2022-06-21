@@ -54,6 +54,7 @@ if __name__ == '__main__':
         print()
 
     # 测试环境运行
+    A_reward = []
     for i in range(10000):
         action = []
         for j in range(40):
@@ -67,8 +68,12 @@ if __name__ == '__main__':
         print("当前奖励:", reward)
         print("每个奖励,", vehicleReward)
         print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
-    print(env.Reward)
+        A_reward.append(reward)
 
-    for i in range(env.num_Vehicles):
-        plt.plot(range(0, len(env.vehicleReward[i][::50], )), env.vehicleReward[i][::50])
-        plt.show()
+    print(A_reward)
+    # for i in range(env.num_Vehicles):
+    #     plt.plot(range(0, len(env.vehicleReward[i][::50], )), env.vehicleReward[i][::50])
+    #     plt.show()
+    plt.plot(range(len(A_reward)),A_reward)
+    plt.show()
+

@@ -5,7 +5,8 @@ from random import sample
 import numpy as np
 
 Experience = namedtuple('Transition',
-                        field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
+                        field_names=['cur_otherState', 'cur_TaskState', 'aimAction', 'TaskAction', 'reward',
+                                     'next_otherState', 'next_TaskState'])  # Define a transition tuple
 
 
 class ReplayMemory(object):  # Define a replay memory
@@ -49,9 +50,11 @@ class ExperienceBuffer:
 
     def sample(self, batch_size):
         indices = np.random.choice(len(self.buffer), batch_size, replace=False)
-        states, actions, rewards, next_states = zip(*[self.buffer[idx] for idx in indices])
+        cur_otherState, cur_TaskState, aimAction, taskAction, rewards, next_otherState, next_TaskState = zip(
+            *[self.buffer[idx] for idx in indices])
         # 转换成numpy
-        return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(next_states)
+        return np.array(cur_otherState), np.array(cur_TaskState), np.array(aimAction), np.array(taskAction), \
+               np.array(rewards, dtype=np.float32), np.array(next_otherState), np.array(next_TaskState)
 
     # 清空
     def clear(self):

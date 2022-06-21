@@ -302,7 +302,7 @@ class Env:
         # 总时间大于最大忍受时间
         energy = self.compute_energy(task.trans_time) + task.energy
         # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
-        reward += 5/(0.5 * (a * sum_time + b * energy + task.vehicle.overflow) + Kq * vehicle.len_task)
+        reward += 5 / (0.5 * (a * sum_time + b * energy + task.vehicle.overflow) + Kq * vehicle.len_task)
         # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
         return reward
 
@@ -422,5 +422,7 @@ class Env:
 
         for i in range(self.num_Vehicles):
             self.vehicleReward[i].append(self.reward[i])
+
+        self.Reward = np.mean(self.reward)
 
         return otherState, taskState, self.vehicles_state, self.otherState, self.Reward, self.reward

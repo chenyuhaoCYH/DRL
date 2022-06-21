@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import ptan
 
+from MyErion.experiment.memory import ExperienceBuffer
 from task import Task
 
 Dv = 100  # 车的最大通信范围
@@ -48,7 +49,7 @@ class Vehicle:
         # 此时刻有多少动作选则我
         self.len_action = 0
         # 当前可用资源
-        self.resources = Fv # round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
+        self.resources = Fv  # round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
         # 当前正在传输的任务
         self.task = None
         # 当前处理的任务
@@ -64,7 +65,7 @@ class Vehicle:
         # 去除邻居的状态信息用于邻居车观察和全局critic的处理
         self.excludeNeighbor_state = []
         # 缓冲池
-        self.buffer = []  # ExperienceBuffer(capacity=CAPACITY)
+        self.buffer = ExperienceBuffer(capacity=CAPACITY)
         # 总奖励
         self.reward = []
         # 任务溢出的数量
