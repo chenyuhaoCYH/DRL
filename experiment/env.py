@@ -83,8 +83,8 @@ class Env:
     # 添加车辆
     def add_new_vehicles(self, id, loc_x, loc_y, direction, velocity):
         vehicle = Vehicle(id=id, loc_x=loc_x, loc_y=loc_y, direction=direction, velocity=velocity)
-        for i in range(10):
-            vehicle.create_work()  # 初始化任务
+        # for i in range(10):
+        vehicle.create_work()  # 初始化任务
         self.vehicles.append(vehicle)
 
     # 初始化/重置环境

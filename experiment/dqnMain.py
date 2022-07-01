@@ -18,7 +18,7 @@ Experience = namedtuple('Transition',
                         field_names=['cur_otherState', 'cur_TaskState', 'aimAction', 'TaskAction', 'reward',
                                      'next_otherState', 'next_TaskState'])  # Define a transition tuple
 GAMMA = 0.99
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 REPLAY_SIZE = 10000
 LEARNING_RATE = 1e-4
 SYNC_TARGET_FRAMES = 1000
@@ -165,12 +165,20 @@ if __name__ == '__main__':
 
     cur_time = time.strftime("%Y-%m-%d-%H-%M", time.localtime(time.time()))
     # 创建文件夹
-    os.makedirs("D:/pycharm/Project/VML/MyErion/result/" + cur_time)
+    os.makedirs("D:/pycharm/Project/VML/MyErion/experiment/result/" + cur_time)
     for i, vehicle in enumerate(env.vehicles):
         # 保存每个网络模型
         torch.save(models[i].state_dict(),
-                   "D:/pycharm/Project/VML/MyErion/result/" + cur_time + "/vehicle" + str(i) + ".pkl")
+                   "D:/pycharm/Project/VML/MyErion/experiment/result/" + cur_time + "/vehicle" + str(i) + ".pkl")
 
     plt.plot(range(len(recent_reward)), recent_reward)
     plt.title("奖励曲线")
+    plt.show()
+
+    plt.plot(range(len(loss_1)), loss_1)
+    plt.title("损失曲线")
+    plt.show()
+
+    plt.plot(range(len(reward_1)), reward_1)
+    plt.title("车辆一奖励曲线")
     plt.show()
