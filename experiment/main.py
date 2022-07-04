@@ -6,9 +6,9 @@ from collections import namedtuple
 import torch
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
-from MyErion.experiment import test_net
-from MyErion.experiment.env import Env
-from MyErion.experiment.memory import ReplayMemory
+from drl.DRL.experiment import test_net
+from env import Env
+from memory import ReplayMemory
 import model
 from tensorboardX import SummaryWriter
 import ptan

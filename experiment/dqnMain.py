@@ -9,8 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 from tensorboardX import SummaryWriter
 
-from MyErion.experiment import Env
-from MyErion.experiment.model import DQN
+from env import Env
+from model import DQN
 from memory import ExperienceBuffer
 import matplotlib.pyplot as plt
 
