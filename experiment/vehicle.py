@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import ptan
 
-from MyErion.experiment.memory import ExperienceBuffer
+from memory import ExperienceBuffer
 from task import Task
 
 Dv = 100  # 车的最大通信范围
