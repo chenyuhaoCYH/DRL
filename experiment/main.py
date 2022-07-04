@@ -6,9 +6,9 @@ from collections import namedtuple
 import torch
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
-from MyErion.experiment import test_net
-from MyErion.experiment.env import Env
-from MyErion.experiment.memory import ReplayMemory
+from drl.DRL.experiment import test_net
+from env import Env
+from memory import ReplayMemory
 import model
 from tensorboardX import SummaryWriter
 import ptan
@@ -79,6 +79,7 @@ def push(env, state, actions, next_state):
 
 
 if __name__ == '__main__':
+    # 参数配置
     time = str(time.time())
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
@@ -92,12 +93,16 @@ if __name__ == '__main__':
     save_path = os.path.join("saves", "ppo-" + args.name)
     os.makedirs(save_path, exist_ok=True)
 
+    # 训练环境
     env = Env()
     env.reset()
+    # 测试环境
     test_env = Env()
     test_env.reset()
 
+    # 去除任务的状态空间
     act_state = len(env.vehicles[0].otherState)
+    # 动作空间
     act_action = 1 + 1 + len(env.vehicles[0].neighbor)
 
     act_nets = []

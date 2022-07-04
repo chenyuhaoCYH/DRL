@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch.distributions.categorical import Categorical
 
-from MyErion.experiment.env import Env
+from env import Env
 
 
 def test_net(nets, env: Env, count=10):

@@ -9,15 +9,15 @@ HID_SIZE = 64
 
 
 class ModelActor(nn.Module):
-    def __init__(self, obs_size, act_size):
+    def __init__(self, obs_dim, act_dim, task_dim):
         super(ModelActor, self).__init__()
 
         self.mu = nn.Sequential(
-            nn.Linear(obs_size, HID_SIZE),
+            nn.Linear(obs_dim, HID_SIZE),
             nn.Tanh(),
             nn.Linear(HID_SIZE, HID_SIZE),
             nn.Tanh(),
-            nn.Linear(HID_SIZE, act_size),
+            nn.Linear(HID_SIZE, act_dim),
             nn.Tanh(),
         )
 
