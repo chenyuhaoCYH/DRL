@@ -425,4 +425,4 @@ class Env:
 
         self.Reward = np.mean(self.reward)
 
-        return otherState, taskState, self.vehicles_state, self.otherState, self.Reward, self.reward
+        return otherState, taskState, self.vehicles_state, self.otherState, self.taskState, self.Reward, self.reward

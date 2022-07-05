@@ -61,13 +61,13 @@ def play_step(env, epsilon, models, device="cpu"):
     action.extend(actionAim)
     action.extend(actionTask)
     # print("action:", action)
-    _, taskState, otherState, _, Reward, reward = env.step(action)
+    _, _, otherState, _, task_state, Reward, reward = env.step(action)
     # print("reward:", reward)
 
     # 加入各自的缓存池【当前其他状态、当前任务状态、目标动作、任务动作，下一其他状态、下一任务状态】
     for i, vehicle in enumerate(vehicles):
         exp = Experience(old_otherState[i], [old_taskState[i]], actionAim[i], actionTask[i], reward[i], otherState[i],
-                         [taskState[i]])
+                         [task_state[i]])
         vehicle.buffer.append(exp)
     return Reward  # 返回总的平均奖励
 
