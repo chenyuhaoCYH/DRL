@@ -28,7 +28,8 @@ PPO_EPOCHES = 10
 PPO_BATCH_SIZE = 64
 
 TEST_ITERS = 10000
-Experience = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'))  # Define a transition tuple
+Experience = namedtuple('Transition', ['state', 'task_state', 'action', 'reward', 'next_state',
+                                       'next_task_state'])  # Define a transition tuple
 
 
 # 将list装换成tensor存入缓冲池中
@@ -70,12 +71,12 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
 
 
 # 将状态信息放入各自的缓冲池中
-def push(env, state, actions, next_state):
-    for i, vehicle in enumerate(env.vehicles):
-        if vehicle.task is not None:  # 没有任务不算经验
-            continue
-        exp = Experience(state, actions[i], env.vehicleReward[i][-1], next_state)
-        vehicle.buffer.append(exp)
+# def push(env, state, actions, next_state):
+#     for i, vehicle in enumerate(env.vehicles):
+#         if vehicle.task is not None:  # 没有任务不算经验
+#             continue
+#         exp = Experience(state, actions[i], env.vehicleReward[i][-1], next_state)
+#         vehicle.buffer.append(exp)
 
 
 if __name__ == '__main__':
@@ -154,7 +155,8 @@ if __name__ == '__main__':
         # 执行动作
         action_act.extend(action_task)
         print(action_act)
-        state, task_state, vehicles_state, new_state, new_task_state, Reward, reward = env.step(action_act)
+        state, task_state, vehicles_state, new_vehicles_state, new_state, new_task_state, Reward, reward = env.step(
+            action_act)
 
         # 测试
         if step_idx % TEST_ITERS == 0:
@@ -177,11 +179,12 @@ if __name__ == '__main__':
             # if vehicle.task is not None:  # 没有任务不算经验
             #     continue
             # 存储车经验
-            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.vehicleReward[i][-1],
-                             env.vehicles[i].otherState)
+            action = [env.offloadingActions[i], env.taskActions[i]]
+            exp = Experience(vehicles_state[i], task_state[i], action, reward[i],
+                             new_vehicles_state[i], new_task_state[i])
             vehicle.buffer.append(exp)
         # 存储系统经验
-        env.buffer.append(Experience(state, cur_action, reward, next_state))
+        env.buffer.append(Experience(state, task_state, action_act, Reward, new_state, new_task_state))
 
         print("the {} reward:{}".format(step_idx, reward))
         if step_idx % TRAJECTORY_SIZE != 0:

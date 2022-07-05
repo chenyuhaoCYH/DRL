@@ -8,7 +8,8 @@ from random import randint
 from mec import MEC
 
 Experience = namedtuple('Transition',
-                        field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
+                        field_names=['state', 'task_state', 'action', 'reward', 'next_state',
+                                     'next_task_state'])  # Define a transition tuple
 
 MAX_TASK = 5  # 只能选前五个任务
 y = [2, 6, 10, 14]  # 车子y的坐标集 # 共四条车道
@@ -315,7 +316,7 @@ class Env:
         else:
             energy = self.compute_energy(task.trans_time) + task.energy
             # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
-            reward += -0.5 * (a * sum_time + b * energy+task.vehicle.overflow) - Kq * vehicle.len_task
+            reward += -0.5 * (a * sum_time + b * energy + task.vehicle.overflow) - Kq * vehicle.len_task
             # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
         return reward
 
@@ -427,6 +428,7 @@ class Env:
 
         other_state = self.otherState
         task_state = self.taskState
+        vehicle_state = self.vehicles_state
 
         self.renew_resources(cur_frame)
 
@@ -436,4 +438,6 @@ class Env:
         self.cur_frame = cur_frame
         print("当前有{}个任务没完成".format(len(self.need_trans_task)))
 
-        return other_state, task_state, self.vehicles_state, self.otherState, self.taskState,self.Reward, self.reward
+        self.Reward = np.mean(self.reward)
+
+        return other_state, task_state, vehicle_state, self.vehicles_state, self.otherState, self.taskState, self.Reward, self.reward
