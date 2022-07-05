@@ -425,8 +425,8 @@ class Env:
         # 处理选取任务动作
         self.process_taskActions()
 
-        otherState = self.otherState
-        taskState = self.taskState
+        other_state = self.otherState
+        task_state = self.taskState
 
         self.renew_resources(cur_frame)
 
@@ -436,4 +436,4 @@ class Env:
         self.cur_frame = cur_frame
         print("当前有{}个任务没完成".format(len(self.need_trans_task)))
 
-        return otherState, taskState, self.vehicles_state, self.otherState, self.Reward, self.reward
+        return other_state, task_state, self.vehicles_state, self.otherState, self.taskState,self.Reward, self.reward

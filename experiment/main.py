@@ -102,12 +102,14 @@ if __name__ == '__main__':
 
     # 去除任务的状态空间
     act_state = len(env.vehicles[0].otherState)
+    # 任务空间
+    task_dim = np.array([env.vehicles[0].taskState]).shape
     # 动作空间
     act_action = 1 + 1 + len(env.vehicles[0].neighbor)
 
     act_nets = []
     for i in env.vehicles:
-        act_net = model.ModelActor(act_state, act_action)
+        act_net = model.ModelActor(act_state, act_action, task_dim)
         act_nets.append(act_net)
 
     crt_net = model.ModelCritic(len(env.otherState))
@@ -128,19 +130,31 @@ if __name__ == '__main__':
     best_reward = None
 
     while True:
-        action = []
+        # 卸载动作
+        action_act = []
+        # 选择任务动作
+        action_task = []
         step_idx += 1
 
         with torch.no_grad():
             for i, act_net in enumerate(act_nets):
-                _, pro = act_net(torch.tensor(env.vehicles[i].otherState))
+                _, action_pro, _, task_pro = act_net(torch.tensor([env.vehicles[i].otherState], dtype=torch.float32),
+                                                     torch.tensor([[env.vehicles[i].taskState]]))
                 # print(pro)
                 # act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
-                act = pro.sample()
+                # 按照概率采样
+                act = action_pro.sample()
+                task = task_pro.sample()
                 # print(act)
-                action.append(act.item())
-
-        state, cur_action, reward, next_state = env.step(action)
+                # 加入数组中
+                action_act.append(act.item())
+                action_task.append(task.item())
+        # print(action_act)
+        # print(action_task)
+        # 执行动作
+        action_act.extend(action_task)
+        print(action_act)
+        state, task_state, vehicles_state, new_state, new_task_state, Reward, reward = env.step(action_act)
 
         # 测试
         if step_idx % TEST_ITERS == 0:
@@ -163,7 +177,8 @@ if __name__ == '__main__':
             # if vehicle.task is not None:  # 没有任务不算经验
             #     continue
             # 存储车经验
-            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.vehicleReward[i][-1], env.vehicles[i].otherState)
+            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.vehicleReward[i][-1],
+                             env.vehicles[i].otherState)
             vehicle.buffer.append(exp)
         # 存储系统经验
         env.buffer.append(Experience(state, cur_action, reward, next_state))
@@ -185,7 +200,7 @@ if __name__ == '__main__':
 
         for i in range(env.num_Vehicles):
             traj_states[i] = [t.otherState for t in env.vehicles[i].buffer]
-            traj_actions[i] = [t.action for t in env.vehicles[i].buffer]
+            traj_actions[i] = [t.action_act for t in env.vehicles[i].buffer]
 
             traj_states_v[i] = torch.FloatTensor(traj_states[i])
             traj_states_v[i] = traj_states_v[i].to(device)
@@ -194,10 +209,10 @@ if __name__ == '__main__':
             traj_actions_v[i] = traj_actions_v[i].to(device)
 
             _, pro_v = act_nets[i](traj_states_v[i])
-            action = pro_v.sample()
+            action_act = pro_v.sample()
             # ans=torch.sum(pro_v,dim=1)
             # print(ans.data)
-            old_logprob_v[i] = Categorical.log_prob(pro_v, action)
+            old_logprob_v[i] = Categorical.log_prob(pro_v, action_act)
 
         traj_adv_v, traj_ref_v = calc_adv_ref(env.buffer, crt_net, traj_statesOfenv)
 

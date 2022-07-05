@@ -28,7 +28,7 @@ def save_experience(state, action, reward, next_state, memory: ReplayMemory):
 def optimize_model(batch, vehicle: Vehicle):
     state = torch.cat(batch.otherState)
     reward = torch.cat(batch.vehicleReward)
-    action = torch.cat(batch.action)
+    action = torch.cat(batch.action_act)
     next_state = torch.cat(batch.next_state)
 
     state_action_value = vehicle.cur_network(state).gather(1, action.unsqueeze(-1)).squeeze(1)
