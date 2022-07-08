@@ -234,8 +234,8 @@ class Env:
         sigma_w = np.power(10, sigma / 10)
         sign = power / sigma_w
         SNR = (BrandWidth_Mec / self.num_Vehicles) * np.log2(1 + sign)
-        print("第{}辆车速率:".format(vehicle.id), SNR / 8)
-        return SNR / 8
+        print("第{}辆车速率:".format(vehicle.id), SNR / 80)
+        return SNR / 80
 
     # 计算两物体持续时间
     def compute_persist(self, vehicle: Vehicle, aim):

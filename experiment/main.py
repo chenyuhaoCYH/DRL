@@ -180,11 +180,11 @@ if __name__ == '__main__':
             #     continue
             # 存储车经验
             action = [env.offloadingActions[i], env.taskActions[i]]
-            exp = Experience(vehicles_state[i], task_state[i], action, reward[i],
-                             new_vehicles_state[i], new_task_state[i])
+            exp = Experience(vehicles_state[i], [task_state[i]], action, reward[i],
+                             new_vehicles_state[i], [new_task_state[i]])
             vehicle.buffer.append(exp)
         # 存储系统经验
-        env.buffer.append(Experience(state, task_state, action_act, Reward, new_state, new_task_state))
+        env.buffer.append(Experience(state, [task_state], action_act, Reward, new_state, [new_task_state]))
 
         print("the {} reward:{}".format(step_idx, reward))
         if step_idx % TRAJECTORY_SIZE != 0:
@@ -192,30 +192,47 @@ if __name__ == '__main__':
 
         # print("存储池", env.vehicles[0].buffer[0])
         # print(len(env.vehicles[0].buffer))
+        # 车的缓冲池
         traj_states = [[] for _ in range(env.num_Vehicles)]
+        traj_taskStates = [[] for _ in range(env.num_Vehicles)]
         traj_actions = [[] for _ in range(env.num_Vehicles)]
+
         traj_states_v = [[] for _ in range(env.num_Vehicles)]
+        traj_taskStates_v = [[] for _ in range(env.num_Vehicles)]
         traj_actions_v = [[] for _ in range(env.num_Vehicles)]
         old_logprob_v = [[] for _ in range(env.num_Vehicles)]
 
-        traj_statesOfenv = [t.otherState for t in env.buffer]
-        tarj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
+        # 环境的缓冲池
+        # 其他状态
+        traj_statesOfenv = [t.next_state for t in env.buffer]
+        # 任务状态
+        traj_taskStatesOfenv = [t.next_task_state for t in env.buffer]
+        # 转成tensor
+        traj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
+        traj_taskStatesOfenv_v = torch.FloatTensor(traj_taskStatesOfenv)
 
+        # 收集每辆车的经验
         for i in range(env.num_Vehicles):
-            traj_states[i] = [t.otherState for t in env.vehicles[i].buffer]
-            traj_actions[i] = [t.action_act for t in env.vehicles[i].buffer]
-
+            traj_states[i] = [t.next_state for t in env.vehicles[i].buffer]
+            traj_taskStates = [t.next_task_state for t in env.vehicles[i].buffer]
+            traj_actions[i] = [t.action for t in env.vehicles[i].buffer]
+            # 转成tensor
             traj_states_v[i] = torch.FloatTensor(traj_states[i])
             traj_states_v[i] = traj_states_v[i].to(device)
+
+            traj_taskStates_v[i] = torch.FloatTensor([traj_taskStates[i]])
+            traj_taskStates_v[i] = traj_taskStates_v[i].to(device)
 
             traj_actions_v[i] = torch.FloatTensor(traj_actions[i])
             traj_actions_v[i] = traj_actions_v[i].to(device)
 
-            _, pro_v = act_nets[i](traj_states_v[i])
-            action_act = pro_v.sample()
-            # ans=torch.sum(pro_v,dim=1)
+            _, pro_act, _, pro_task = act_nets[i](traj_states_v[i], traj_taskStates_v[i])
+            action_act = [pro_act.sample(), pro_task.sample()]
+            ans = torch.sum(pro_act, dim=1)
+            ans1 = torch.sum(pro_task, dim=1)
             # print(ans.data)
-            old_logprob_v[i] = Categorical.log_prob(pro_v, action_act)
+            old_logprob_v[i] = Categorical.log_prob(pro_act, action_act[0]) + Categorical.log_prob(pro_task,
+                                                                                                   action_act[1])
 
         traj_adv_v, traj_ref_v = calc_adv_ref(env.buffer, crt_net, traj_statesOfenv)
 
@@ -238,7 +255,7 @@ if __name__ == '__main__':
                                    PPO_BATCH_SIZE):
                 batch_l = batch_ofs + PPO_BATCH_SIZE
 
-                states_e = tarj_statesOfenv_v[batch_ofs:batch_l]
+                states_e = traj_statesOfenv_v[batch_ofs:batch_l]
                 batch_adv_v = traj_adv_v[batch_ofs:batch_l]
                 batch_adv_v = batch_adv_v.unsqueeze(-1)
                 batch_ref_v = traj_ref_v[batch_ofs:batch_l]
@@ -263,8 +280,8 @@ if __name__ == '__main__':
                     actions_v[i] = traj_actions_v[i][batch_ofs:batch_l]
 
                     act_opts[i].zero_grad()
-                    _, pro_v = act_nets[i](states_v[i])
-                    logprob_pi_v = Categorical.log_prob(pro_v, actions_v[i])
+                    _, pro_act = act_nets[i](states_v[i])
+                    logprob_pi_v = Categorical.log_prob(pro_act, actions_v[i])
                     ratio_v = torch.exp(
                         logprob_pi_v - batch_old_logprob_v[i])
                     surr_obj_v = batch_adv_v * ratio_v
