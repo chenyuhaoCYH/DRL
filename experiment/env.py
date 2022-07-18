@@ -29,7 +29,7 @@ gama = 1.25 * (10 ** -8)  # 能量系数
 a = 0.6  # 奖励中时间占比
 b = 0.4  # 奖励中能量占比
 
-Ki = -4  # 非法动惩罚项
+Ki = -2  # 非法动惩罚项
 Kq = 0.0025  # 任务队列长度系数
 Ks = 0.5  # 奖励占比
 
@@ -300,9 +300,12 @@ class Env:
         # print("第{}辆车的任务的处理时间:{}s".format(vehicle.id, time_precess))
         sum_time = cur_frame - task.create_time
         # 总时间大于最大忍受时间
-        energy = self.compute_energy(task.trans_time) + task.energy
-        # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
-        reward += 5 / (0.5 * (a * sum_time + b * energy + task.vehicle.overflow) + Kq * vehicle.len_task)
+        if sum_time > task.max_time:
+            reward += Ki
+        else:
+            energy = self.compute_energy(task.trans_time) + task.energy
+            # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
+            reward += 5 / (0.5 * (a * sum_time + b * energy + task.vehicle.overflow) + Kq * vehicle.len_task)
         # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
         return reward
 
