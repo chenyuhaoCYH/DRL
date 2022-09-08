@@ -240,7 +240,7 @@ if __name__ == '__main__':
         traj_adv_v = traj_adv_v - torch.mean(traj_adv_v)
         traj_adv_v /= torch.std(traj_adv_v)
 
-        # drop last entry from the trajectory, an our adv and ref value calculated without it
+        # drop last entry from the trajectory, an adv and ref value calculated without it
         env.buffer = env.buffer[:-1]
         for i in range(env.num_Vehicles):
             env.vehicles[i].buffer[i] = env.vehicles[i].buffer[i][:-1]

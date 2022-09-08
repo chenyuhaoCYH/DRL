@@ -134,7 +134,7 @@ class Env:
     # 根据动作将任务添加至对应的列表当中  分配任务
     def distribute_task(self):
         for i, action in enumerate(self.actions):
-            task = self.vehicles[i].task
+            task = self.vehicles[i].trans_task
             if task[0] == 0:
                 continue  # 没有任务
             elif action == 0:  # 卸载至本地
@@ -165,7 +165,7 @@ class Env:
         sum = 0
         for i, vehicle in enumerate(self.vehicles):
             # 只考虑有任务的车辆
-            if vehicle.task[0] > 0:
+            if vehicle.trans_task[0] > 0:
                 sum += 1
                 aim = self.aim[i]
                 distance = self.compute_distance(vehicle, aim)
@@ -175,10 +175,10 @@ class Env:
                     trans_time = self.compute_transmit(taskVehicle=vehicle, aim=aim)
                     precessed_time = self.compute_precessed(vehicle, aim=aim)
                     total_time = trans_time + precessed_time
-                    if total_time > vehicle.task[2]:  # 超过最大忍耐时间
+                    if total_time > vehicle.trans_task[2]:  # 超过最大忍耐时间
                         cur_reward = -1
                     else:
-                        cur_reward = vehicle.task[2] - total_time  # 剩余时间作为奖励
+                        cur_reward = vehicle.trans_task[2] - total_time  # 剩余时间作为奖励
             else:
                 cur_reward = 0
             reward += cur_reward
@@ -251,7 +251,7 @@ class Env:
     def renew_locs(self, cur_frame):
         time = cur_frame - self.cur_frame
         for vehicle in self.vehicles:
-            loc_x = vehicle.get_x + vehicle.direction * vehicle.velocity * time
+            loc_x = vehicle.get_x + vehicle.directions * vehicle.velocity * time
             if loc_x > 500:
                 vehicle.set_location(-500, vehicle.get_y)
             elif loc_x < -500:
@@ -262,7 +262,7 @@ class Env:
     # 将状态信息放入各自的缓冲池中
     def push(self, state, actions, rewards, next_state):
         for i, vehicle in enumerate(self.vehicles):
-            if vehicle.task[0] == 0:  # 没有任务不算经验
+            if vehicle.trans_task[0] == 0:  # 没有任务不算经验
                 continue
             exp = Experience(state, actions[i], rewards[i], next_state)
             vehicle.buffer.append(exp)

@@ -58,7 +58,7 @@ if __name__ == '__main__':
         for j in range(40):
             action.append(np.random.randint(0, 7))
         print(len(action))
-        state, taskState, vehicleState, next_state, reward, vehicleReward = env.step(action)
+        state, taskState, vehicleState, next_state, reward, vehicleReward, _, _ = env.step(action)
         print("当前状态:", state)
         print("下一状态:", next_state)
         print("车状态:", vehicleState)

@@ -1,19 +1,12 @@
 import sys
-from collections import namedtuple
-
-import numpy as np
-
-from vehicle import Vehicle
 from random import randint
+import numpy as np
 from mec import MEC
-
-Experience = namedtuple('Transition',
-                        field_names=['state', 'task_state', 'action', 'reward', 'next_state',
-                                     'next_task_state'])  # Define a transition tuple
+from vehicle import Vehicle
 
 MAX_TASK = 5  # 只能选前五个任务
 y = [2, 6, 10, 14]  # 车子y的坐标集 # 共四条车道
-direction = [1, 1, -1, -1]  # 车子的方向
+directions = [1, 1, -1, -1]  # 车子的方向
 MEC_loc = [[-800, 0], [-400, 16], [0, 0], [400, 16], [800, 0]]  # mec的位置
 
 Fv = 1  # 车的计算能力
@@ -23,14 +16,14 @@ MAX_NEIGHBOR = 5  # 最大邻居数
 CAPACITY = 20000  # 缓冲池大小
 
 sigma = -114  # 噪声dbm
-POWER = 23  # 功率w dbm
+POWER = 23  # 功率 dbm
 BrandWidth_Mec = 100  # MHz
 
-gama = 1.25 * (10 ** -6)  # 能量系数
+gama = 1.25 * (10 ** -6)  # 能量系数 J/M cycle
 a = 0.6  # 奖励中时间占比
 b = 0.4  # 奖励中能量占比
 
-Ki = -4  # 非法动惩罚项
+Ki = -1  # 非法动惩罚项
 Kq = 0.0025  # 任务队列长度系数
 Ks = 0.5  # 奖励占比
 
@@ -71,6 +64,8 @@ class Env:
         self.offloadingActions = [0] * num_Vehicles
         # 所有车的选择任务动作
         self.taskActions = [0] * num_Vehicles
+        # 所有车分配的资源比率
+        self.compute_ratio = [0] * num_Vehicles
         # 所有车要传输的对象 vehicle or mec
         self.aims = []
         # 当前全局的状态信息  维度:
@@ -85,7 +80,6 @@ class Env:
     # 添加车辆
     def add_new_vehicles(self, id, loc_x, loc_y, direction, velocity):
         vehicle = Vehicle(id=id, loc_x=loc_x, loc_y=loc_y, direction=direction, velocity=velocity)
-        vehicle.create_work()  # 初始化任务
         self.vehicles.append(vehicle)
 
     # 初始化/重置环境
@@ -107,7 +101,7 @@ class Env:
         i = 0
         while i < self.num_Vehicles:  # 初始化车子
             n = np.random.randint(0, 4)  # 左闭右开
-            self.add_new_vehicles(id=i, loc_x=randint(-1000, 1000), loc_y=y[n], direction=direction[n],
+            self.add_new_vehicles(id=i, loc_x=randint(-1000, 1000), loc_y=y[n], direction=directions[n],
                                   velocity=np.random.randint(17, 35))
             i += 1
         # 初始化邻居信息
@@ -145,8 +139,9 @@ class Env:
                 distance.append(self.compute_distance(vehicle, mec))
             vehicle.mec_lest = self.MECs[distance.index(min(distance))]
 
-    # 获得传输对象
-    def get_aim(self, vehicle: Vehicle, action):
+    # 获得卸载对象
+    @staticmethod
+    def get_aim(vehicle: Vehicle, action):
         if action == 0:
             return vehicle
         elif action == 1:
@@ -164,23 +159,24 @@ class Env:
             action = self.taskActions[i]
             # 获得要传输的任务
             # 大于当前任务长度
-            if action >= vehicle.len_task:
+            if action >= vehicle.len_task or action < 0:
                 # 非法动作 给予惩罚项
-                self.reward[vehicle.id] += Ki
+                self.reward[i] += Ki
                 continue
             # 大于可选范围（默认选择第一个）
-            elif action > MAX_TASK:
+            elif action >= MAX_TASK:
                 task = vehicle.total_task[0]
             else:
                 task = vehicle.total_task[action]
 
             # 初始化任务信息
+            # 获得卸载对象
             aim = self.get_aim(vehicle, self.offloadingActions[i])
             task.aim = aim
 
             # 卸载给本地 直接放到任务队列中
             if vehicle == aim:
-                task.option = self.cur_frame
+                task.pick_time = self.cur_frame
                 vehicle.accept_task.append(task)
                 vehicle.total_task.remove(task)
                 vehicle.cur_task = task
@@ -188,35 +184,38 @@ class Env:
                 continue
 
             # 需要传输 卸载给远程
-            # 有任务在传输
-            if vehicle.task is not None:
+            if vehicle.trans_task is not None:
+                # 有任务在传输
                 vehicle.cur_task = None
                 # 非法动作 给予惩罚项
-                self.reward[vehicle.id] += Ki
+                self.reward[i] += Ki
             else:
-                task.option = self.cur_frame
+                task.pick_time = self.cur_frame
                 task.aim = aim
+                task.rate = self.compute_rate(task.vehicle, task.aim)
+
                 aim.len_action += 1
                 vehicle.len_task -= 1
                 vehicle.cur_task = task
-                vehicle.task = task
+                vehicle.trans_task = task
                 vehicle.total_task.remove(task)
                 self.need_trans_task.append(task)
 
     # 计算距离(车到车或者车到MEC)  aim：接受任务的目标
-    def compute_distance(self, taskVehicle: Vehicle, aim):
+    @staticmethod
+    def compute_distance(taskVehicle: Vehicle, aim):
         return round(np.sqrt(np.abs(taskVehicle.get_x - aim.get_x) ** 2 + np.abs(taskVehicle.get_y - aim.get_y) ** 2),
                      2)
 
     def generate_fading_V2I(self, dist_veh2bs):
         dist2 = (self.vehHeight - self.bsHeight) ** 2 + dist_veh2bs ** 2
-        pathloss = 128.1 + 37.6 * np.log10(np.sqrt(dist2) / 1000)  # 路损公式中距离使用km计算
-        combinedPL = -(np.random.randn() * self.stdV2I + pathloss)
+        pathLoss = 128.1 + 37.6 * np.log10(np.sqrt(dist2) / 1000)  # 路损公式中距离使用km计算
+        combinedPL = -(np.random.randn() * self.stdV2I + pathLoss)
         return combinedPL + self.vehAntGain + self.bsAntGain - self.bsNoiseFigure
 
     def generate_fading_V2V(self, dist_DuePair):
-        pathloss = 32.4 + 20 * np.log10(dist_DuePair) + 20 * np.log10(self.freq)
-        combinedPL = -(np.random.randn() * self.stdV2V + pathloss)
+        pathLoss = 32.4 + 20 * np.log10(dist_DuePair) + 20 * np.log10(self.freq)
+        combinedPL = -(np.random.randn() * self.stdV2V + pathLoss)
         return combinedPL + self.vehAntGain * 2 - self.vehNoiseFigure
 
     # 计算实时传输速率（在一个时隙内假设不变）
@@ -234,8 +233,8 @@ class Env:
         sigma_w = np.power(10, sigma / 10)
         sign = power / sigma_w
         SNR = (BrandWidth_Mec / self.num_Vehicles) * np.log2(1 + sign)
-        print("第{}辆车速率:".format(vehicle.id), SNR / 80)
-        return SNR / 80
+        print("第{}辆车速率:".format(vehicle.id), SNR)
+        return SNR  # kb/ms
 
     # 计算两物体持续时间
     def compute_persist(self, vehicle: Vehicle, aim):
@@ -257,7 +256,8 @@ class Env:
                 vehicle.velocity * vehicle.direction)
 
     # 计算这个任务传输所需要消耗的能量
-    def compute_energy(self, trans_time):
+    @staticmethod
+    def compute_energy(trans_time):
         return np.power(10, POWER / 10) * trans_time
 
     # 根据动作将任务添加至对应的列表当中  分配任务
@@ -280,16 +280,10 @@ class Env:
             # 能够传输完
             if task.need_trans_size <= time * rate:
                 # 表示当前任务能够卸载完成 可以继续卸载
-                self.vehicles[vehicle.id].task = None
+                self.vehicles[vehicle.id].trans_task = None
                 print("第{}车任务传输完成".format(vehicle.id))
-                # mec
-                if type(aim) == MEC:
-                    self.vehicles[vehicle.id].mec_lest.accept_task.append(task)
-                    aim.len_action -= 1
-                # neighbor vehicle
-                else:
-                    aim.accept_task.append(task)
-                    aim.len_action -= 1
+                aim.accept_task.append(task)
+                aim.len_action -= 1
             else:
                 task.need_trans_size -= time * rate
                 need_task.append(task)
@@ -304,20 +298,35 @@ class Env:
 
     # 获得奖励
     def get_reward(self, task):  # 获得奖励
-        reward = 0
-        aim = task.aim
+        # reward = 0
         vehicle = task.vehicle
-        # print("第{}辆车的任务的处理时间:{}s".format(vehicle.id, time_precess))
-        sum_time = self.cur_frame - task.create_time
-        # 总时间大于最大忍受时间
-        if sum_time > task.max_time:
-            reward += Ki
-        # print("第{}辆车的任务总时间时间:{}s".format(vehicle.id, sum_time))
+        cur_rate = task.rate
+        cur_compute = task.compute_resource
+        # # print("第{}辆车的任务的处理时间:{}s".format(vehicle.id, time_precess))
+        # sum_time = self.cur_frame - task.create_time
+        # # 总时间大于最大忍受时间
+        # if sum_time > task.max_time:
+        #     reward += Ki
+        # # print("第{}辆车的任务总时间时间:{}s".format(vehicle.id, sum_time))
+        # else:
+        #     energy = self.compute_energy(task.trans_time) + task.energy
+        #     # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
+        #     reward += -0.5 * (a * sum_time + b * energy + task.vehicle.overflow) - Kq * vehicle.len_task
+        #     # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
+        trans_time = task.size / cur_rate
+        compute_time = task.need_precess_cycle / cur_compute
+        communication_time = self.compute_persist(vehicle, task.aim)
+        sum_time = trans_time + compute_time
+
+        if communication_time < sum_time:
+            reward = Ki * (sum_time - communication_time)
+        elif sum_time > task.max_time:
+            reward = Ki * (sum_time - task.max_time)
         else:
-            energy = self.compute_energy(task.trans_time) + task.energy
-            # print("第{}辆车完成任务消耗的能量:{}".format(vehicle.id, energy))
-            reward += -0.5 * (a * sum_time + b * energy + task.vehicle.overflow) - Kq * vehicle.len_task
-            # print("第{}辆车的任务奖励{}".format(vehicle.id, reward))
+            energy = gama * np.power(cur_compute, 3) * compute_time
+            if task.aim != vehicle:
+                energy += self.compute_energy(trans_time)
+            reward = -0.5 * (a * sum_time + b * energy + vehicle.overflow) - Kq * vehicle.len_task
         return reward
 
     # 更新资源信息并为处理完的任务计算奖励
@@ -345,6 +354,7 @@ class Env:
                 # 删除已经处理完的任务并为其计算奖励
                 for task in removed_task:
                     self.reward[task.vehicle.id] += self.get_reward(task)
+                    print("任务{}已完成，传输花费{}ms，计算花费{}ms".format(task.size, task.trans_time, task.precess_time))
                     total_task.remove(task)
 
         # 更新mec的资源信息
@@ -353,7 +363,7 @@ class Env:
             size = len(total_task)
             if size > 0 and mec.resources > 0:
                 f = mec.resources / size
-                # print("mec {} give {} rescource".format(i, f))
+                # print("mec {} give {} resource".format(i, f))
                 removed_task = []
                 for task in mec.accept_task:
                     precessed_time = task.need_precess_cycle / f
@@ -414,11 +424,12 @@ class Env:
 
     # 执行动作
     def step(self, actions):
-        cur_frame = self.cur_frame + 0.1  # s
+        cur_frame = self.cur_frame + 1  # ms
         # 分配动作
         lenAction = int(len(actions) / 2)
         self.offloadingActions = actions[0:lenAction]
-        self.taskActions = actions[lenAction:]
+        self.taskActions = actions[lenAction:2 * lenAction]
+        self.compute_ratio = actions[2 * lenAction:]
 
         # 重置奖励
         self.reward = [0] * self.num_Vehicles
@@ -436,7 +447,7 @@ class Env:
 
         # 更新时间
         self.cur_frame = cur_frame
-        print("当前有{}个任务没完成".format(len(self.need_trans_task)))
+        print("当前有{}个任务没传输完成".format(len(self.need_trans_task)))
 
         self.Reward = np.mean(self.reward)
 

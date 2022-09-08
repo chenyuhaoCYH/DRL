@@ -38,7 +38,7 @@ class ReplayMemory(object):  # Define a replay memory
 
 class ExperienceBuffer:
     def __init__(self, capacity):
-        self.maxlen = capacity
+        self.maxLen = capacity
         self.buffer = collections.deque(maxlen=capacity)  # 队列，先进先出
 
     def __len__(self):
@@ -55,4 +55,4 @@ class ExperienceBuffer:
 
     # 清空
     def clear(self):
-        self.buffer = collections.deque(maxlen=self.maxlen)
+        self.buffer = collections.deque(maxlen=self.maxLen)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 RANGE_MEC = 200  # MEC通信范围
-RESOURCE = 2000  # 可用资源  MHz
+RESOURCE = 8000  # 可用资源  MHz
 
 
 # 边缘服务器
@@ -11,7 +11,7 @@ class MEC:
         self.loc_y = loc_y
         self.loc = [self.loc_x, self.loc_y]
         self.id = id
-        self.resources = resources  # 可用资源 GHz
+        self.resources = resources  # 当前可用资源 GHz
         self.state = []
         self.range = RANGE_MEC  # 通信范围 m
         # 当前接到需要处理的任务信息
@@ -62,10 +62,10 @@ if __name__ == '__main__':
     #     print("v{}.get_state():{}".format(i, vehicle.get_state()))
     # print("mec.get_state():", mec.get_state(), mec.cur_frame)
     # mec.get_task([2] * 40, vehicles)
-    # print("mec.recevied_task:", mec.recevied_task)
+    # print("mec.received_task:", mec.received_task)
     # print("resources:", mec.resources)
     # mec.renew_resources(1)
-    # print("after recevied_task:", mec.recevied_task)
+    # print("after received_task:", mec.received_task)
     # print("after resources:", mec.resources)
     # print("renew_state", mec.renew_state(1, [1, 2, 2], vehicles), mec.cur_frame)
     print(mec.get_location)

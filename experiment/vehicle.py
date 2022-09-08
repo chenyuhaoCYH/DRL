@@ -2,19 +2,18 @@
 import random
 
 import numpy as np
-import torch
-import ptan
 
 from task import Task
 
 Dv = 50  # 车的最大通信范围
-Fv = 400  # 车最大计算能力  MHZ
+Fv = 4000  # 车最大计算能力  MHZ
 alpha = 0.25
-MAX_TASK = 20  # 任务队列最大长度
+MAX_TASK = 10  # 任务队列最大长度
 
 CAPACITY = 20000  # 缓冲池大小
 TASK_DISTRIBUTE = 4  # 可分的任务段数
 MAX_NEIGHBOR = 20  # 最大邻居数
+TASK_SOLT = 10  # 任务产生时隙
 # 网络学习率
 LEARNING_RATE = 1e-4
 
@@ -48,9 +47,9 @@ class Vehicle:
         # 此时刻有多少动作选则我
         self.len_action = 0
         # 当前可用资源
-        self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # GHz
+        self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # MHz
         # 当前正在传输的任务
-        self.task = None
+        self.trans_task = None
         # 当前处理的任务
         self.cur_task = None
         # 任务队列
@@ -69,8 +68,11 @@ class Vehicle:
         self.reward = []
         # 任务溢出的数量
         self.overflow = 0
+        # 需等待时长
+        self.hold_on = 0
 
         self.get_state()
+        self.create_work()
 
     # 获得位置
     @property
@@ -95,17 +97,19 @@ class Vehicle:
 
     # 产生任务 传入当前时间
     def create_work(self):
-        # 每次有0.5的概率产生任务
-        if random.random() < 0.5:
-            if self.len_task < MAX_TASK:  # 队列不满
-                task = Task(self, self.cur_frame)
-                self.total_task.append(task)
-                self.len_task += 1
-                print("第{}辆车产生了任务".format(self.id))
-                self.overflow = 0
-            else:
-                print("第{}辆车任务队列已满".format(self.id))
-                self.overflow += 1
+        # 每20ms进行一次任务产生
+        if self.cur_frame % TASK_SOLT == 0:
+            # 每次有0.5的概率产生任务
+            if random.random() < 0.6:
+                if self.len_task < MAX_TASK:  # 队列不满
+                    task = Task(self, self.cur_frame)
+                    self.total_task.append(task)
+                    self.len_task += 1
+                    print("第{}辆车产生了任务".format(self.id))
+                    self.overflow = 0
+                else:
+                    print("第{}辆车任务队列已满".format(self.id))
+                    self.overflow += 1
 
     # 获得状态
     def get_state(self):
@@ -130,9 +134,9 @@ class Vehicle:
         self.excludeNeighbor_state.append(self.len_action)
 
         # 正在传输的任务信息
-        if self.task is not None:
-            self.otherState.append(self.task.need_trans_size)
-            self.excludeNeighbor_state.append(self.task.need_trans_size)
+        if self.trans_task is not None:
+            self.otherState.append(self.trans_task.need_trans_size)
+            self.excludeNeighbor_state.append(self.trans_task.need_trans_size)
         else:
             self.otherState.append(0)
             self.excludeNeighbor_state.append(0)
