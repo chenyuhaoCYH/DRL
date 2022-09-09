@@ -22,7 +22,7 @@ gama = 1.25 * (10 ** -6)  # 能量系数 J/M cycle
 a = 0.6  # 奖励中时间占比
 b = 0.4  # 奖励中能量占比
 
-Ki = -1  # 非法动惩罚项
+Ki = -2  # 非法动惩罚项(会导致任务直接失败，所以惩罚力度大)
 Kq = 0.0025  # 任务队列长度系数
 Ks = 0.5  # 奖励占比
 
@@ -157,9 +157,8 @@ class Env:
 
             action = self.taskActions[i]
             # 获得要传输的任务
-            # 大于当前任务长度
             if action >= vehicle.len_task or action < 0:
-                # 非法动作 给予惩罚项
+                # 非法动作 给予惩罚项 任务失败
                 self.reward[i] += Ki
                 continue
             # 大于可选范围（默认选择第一个）
@@ -184,7 +183,7 @@ class Env:
 
             # 需要传输 卸载给远程
             if vehicle.trans_task == 1:
-                # 有任务在传输
+                # 有任务在传输 任务失败
                 vehicle.cur_task = None
                 # 非法动作 给予惩罚项
                 self.reward[i] += Ki
@@ -247,15 +246,15 @@ class Env:
 
         if type(aim) is Vehicle:  # 如果对象是车
             if vehicle.velocity == aim.velocity and vehicle.direction == aim.direction:
-                return sys.maxsize  # return np.abs(vehicle.direction * 500 - np.max(np.abs(vehicle.get_x),
+                return sys.maxsize * 1000  # return np.abs(vehicle.direction * 500 - np.max(np.abs(vehicle.get_x),
                 # np.abs(aim.get_x))) / vehicle.velocity
             else:
                 return (np.sqrt(vehicle.range ** 2 - (aim.get_y - vehicle.get_y) ** 2) + aim.get_x - vehicle.get_x) / \
-                       np.abs(vehicle.velocity * vehicle.direction - aim.velocity * aim.direction)
+                       np.abs(vehicle.velocity * vehicle.direction - aim.velocity * aim.direction) * 1000
 
         else:  # 对象是MEC
             return (np.sqrt(aim.range ** 2 - (aim.get_y - vehicle.get_y) ** 2) + aim.get_x - vehicle.get_x) / np.abs(
-                vehicle.velocity * vehicle.direction)
+                vehicle.velocity * vehicle.direction) * 1000
 
     # 计算这个任务传输所需要消耗的能量
     @staticmethod
@@ -267,9 +266,38 @@ class Env:
     """
 
     def distribute_resource(self, ratio: list):
+        # 记录分配比率
+        sum_ratio_matrix = np.zeros((self.num_Vehicles, self.num_Vehicles + self.num_MECs), dtype=float)
         for i, vehicle in enumerate(self.vehicles):
-            if vehicle.cur_task is not None:
-                vehicle.cur_task.compute_resource = ratio[i] * vehicle.cur_task.aim.resources
+            task = vehicle.cur_task
+            if task is not None:
+                if ratio[i] == 0:
+                    # 分配比率为零
+                    self.reward[i] += Ki
+                    if task.aim == task.vehicle:
+                        vehicle.accept_task.remove(task)
+                    else:
+                        self.need_trans_task.remove(task)
+                resources = task.aim.resources
+                task.compute_resource = ratio[i] * resources
+                j = task.aim.id + self.num_Vehicles if type(task.aim) == MEC else task.aim.id
+                sum_ratio_matrix[i][j] += ratio[i]
+
+        # 对列求和
+        sum_ratio = np.sum(sum_ratio_matrix, axis=0)
+        for j, cur_ratio in enumerate(sum_ratio):
+            aim = self.vehicles[j] if j < self.num_Vehicles else self.MECs[j - self.num_Vehicles]
+            if cur_ratio > 1 or aim.resources <= 0:
+                # 分配非法
+                for i in range(sum_ratio_matrix.shape[0]):
+                    if sum_ratio_matrix[i][j] > 0:
+                        task = self.vehicles[i].cur_task
+                        self.reward[i] += Ki
+                        # 移除任务（任务被判定为失败）
+                        if i == j:
+                            self.vehicles[i].accept_task.remove(task)
+                        else:
+                            self.need_trans_task.remove(task)
 
     """
     计算此时任务的奖励
@@ -446,8 +474,6 @@ class Env:
 
         # 更新车位置信息
         self.renew_locs(cur_frame)
-        # 更新车和mec的资源及任务列表信息
-        self.renew_resources(cur_frame)
         # 更新邻居表
         self.renew_neighbor()
         # 更新最近mec
@@ -483,6 +509,8 @@ class Env:
         self.process_taskActions()
         # 分配计算资源
         self.distribute_resource(self.compute_ratio)
+        # 计算奖励
+        self.compute_rewards()
 
         # 记录当前状态
         other_state = self.otherState

@@ -14,7 +14,7 @@ class Task:
         self.vehicle = vehicle  # 产生任务的车辆
         self.size = np.random.uniform(0.2, 1)  # Mb
         self.cycle = np.random.randint(20, 50)  # cycle/bit
-        self.max_time = self.size * self.cycle / (5 * Fv)  # ms  最大容忍时间
+        self.max_time = 50  # ms  最大容忍时间
         self.need_trans_size = self.size * np.power(2, 10)  # Kb 还剩余多少未传输完成
         self.need_precess_cycle = self.cycle * self.size * 1000  # Mb * cycle/byte =M cycle 还剩余多少轮次未完成（10^6)
 

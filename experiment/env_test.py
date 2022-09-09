@@ -59,7 +59,6 @@ if __name__ == '__main__':
             action.append(np.random.randint(0, 7))
         for j in range(20):
             action.append(np.random.random())
-        print(len(action))
         env.step(action)
         # print("当前状态:", state)
         # print("下一状态:", next_state)
@@ -68,4 +67,4 @@ if __name__ == '__main__':
         # print("当前奖励:", reward)
         # print("每个奖励,", vehicleReward)
         # print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
-        print(env.Reward)
+        print("reward:", env.Reward)

@@ -11,9 +11,11 @@ class MEC:
         self.loc_y = loc_y
         self.loc = [self.loc_x, self.loc_y]
         self.id = id
-        self.resources = resources  # 当前可用资源 GHz
+        # 当前可用资源 MHz
+        self.resources = resources
         self.state = []
-        self.range = RANGE_MEC  # 通信范围 m
+        # 通信范围 m
+        self.range = RANGE_MEC
         # 当前接到需要处理的任务信息
         self.accept_task = []
         # 接受任务的数量
@@ -37,7 +39,10 @@ class MEC:
     def get_location(self):
         return self.loc
 
-    # 获得状态
+    """
+        获得状态
+    """
+
     def get_state(self):
         """
         :return:state 维度：1+2+2 6维[id，loc_x,loc_y,resources,sum_needDeal_task1and2,sum_needDeal_task3]
