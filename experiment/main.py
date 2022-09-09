@@ -6,7 +6,7 @@ from collections import namedtuple
 import torch
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
-from drl.DRL.experiment import test_net
+from experiment import test_net
 from env import Env
 from memory import ReplayMemory
 import model

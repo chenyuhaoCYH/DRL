@@ -14,8 +14,6 @@ CAPACITY = 20000  # 缓冲池大小
 TASK_DISTRIBUTE = 4  # 可分的任务段数
 MAX_NEIGHBOR = 20  # 最大邻居数
 TASK_SOLT = 10  # 任务产生时隙
-# 网络学习率
-LEARNING_RATE = 1e-4
 
 np.random.seed(0)
 
@@ -48,8 +46,8 @@ class Vehicle:
         self.len_action = 0
         # 当前可用资源
         self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # MHz
-        # 当前正在传输的任务
-        self.trans_task = None
+        # 表示当前是否有任务正在传输
+        self.trans_task = 0
         # 当前处理的任务
         self.cur_task = None
         # 任务队列
@@ -111,7 +109,9 @@ class Vehicle:
                     print("第{}辆车任务队列已满".format(self.id))
                     self.overflow += 1
 
-    # 获得状态
+    """
+    获得状态
+    """
     def get_state(self):
         self.otherState = []
         self.excludeNeighbor_state = []
@@ -127,19 +127,23 @@ class Vehicle:
 
         # 资源信息（可用资源、正在处理的任务量、正在传输的任务量）
         self.otherState.append(self.resources)
-        self.excludeNeighbor_state.append(self.resources)
         self.otherState.append(self.sum_needDeal_task)
         self.otherState.append(self.len_action)
+        self.excludeNeighbor_state.append(self.resources)
         self.excludeNeighbor_state.append(self.sum_needDeal_task)
         self.excludeNeighbor_state.append(self.len_action)
 
+        # 当前是否有任务在传输
+        self.excludeNeighbor_state.append(self.trans_task)
+        self.otherState.append(self.trans_task)
+
         # 正在传输的任务信息
-        if self.trans_task is not None:
-            self.otherState.append(self.trans_task.need_trans_size)
-            self.excludeNeighbor_state.append(self.trans_task.need_trans_size)
-        else:
-            self.otherState.append(0)
-            self.excludeNeighbor_state.append(0)
+        # if self.trans_task is not None:
+        #     self.otherState.append(self.trans_task.need_trans_size)
+        #     self.excludeNeighbor_state.append(self.trans_task.need_trans_size)
+        # else:
+        #     self.otherState.append(0)
+        #     self.excludeNeighbor_state.append(0)
         self.otherState.append(self.len_task)  # 当前队列长度
         self.excludeNeighbor_state.append(self.len_task)
 
