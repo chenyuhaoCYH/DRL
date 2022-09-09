@@ -58,7 +58,7 @@ if __name__ == '__main__':
         for j in range(40):
             action.append(np.random.randint(0, 7))
         for j in range(20):
-            action.append(np.random.random())
+            action.append(round(np.random.random(), 2))
         env.step(action)
         # print("当前状态:", state)
         # print("下一状态:", next_state)

@@ -160,6 +160,7 @@ class Env:
             if action >= vehicle.len_task or action < 0:
                 # 非法动作 给予惩罚项 任务失败
                 self.reward[i] += Ki
+                vehicle.cur_task = None
                 continue
             # 大于可选范围（默认选择第一个）
             elif action >= MAX_TASK:
@@ -274,12 +275,15 @@ class Env:
                 if ratio[i] == 0:
                     # 分配比率为零
                     self.reward[i] += Ki
+                    task.vehicle.cur_task = None
                     if task.aim == task.vehicle:
                         vehicle.accept_task.remove(task)
                     else:
                         self.need_trans_task.remove(task)
                 resources = task.aim.resources
+                # 分配资源
                 task.compute_resource = ratio[i] * resources
+                task.aim.resources -= task.compute_resource
                 j = task.aim.id + self.num_Vehicles if type(task.aim) == MEC else task.aim.id
                 sum_ratio_matrix[i][j] += ratio[i]
 
@@ -292,12 +296,15 @@ class Env:
                 for i in range(sum_ratio_matrix.shape[0]):
                     if sum_ratio_matrix[i][j] > 0:
                         task = self.vehicles[i].cur_task
+                        task.vehicle.cur_task = None
                         self.reward[i] += Ki
                         # 移除任务（任务被判定为失败）
                         if i == j:
                             self.vehicles[i].accept_task.remove(task)
                         else:
                             self.need_trans_task.remove(task)
+                        # 回收资源
+                        aim.resources += task.compute_resource
 
     """
     计算此时任务的奖励
@@ -403,7 +410,7 @@ class Env:
 
             if size > 0 and vehicle.resources > 0:  # 此时有任务并且有剩余资源
                 # 记录这个时隙能够处理完的任务
-                removed_task = []
+                retain_task = []
                 for task in total_task:
                     f = task.compute_resource
                     # 遍历此车的所有任务列表
@@ -412,41 +419,39 @@ class Env:
                     task.precess_time += time
                     # 加上这时隙所消耗能量
                     task.energy = gama * np.power(f / 1000, 3) * time
-                    if precessed_time > time:  # 不能处理完
+                    if precessed_time > time:
+                        # 不能处理完
                         task.need_precess_cycle -= f * time
+                        retain_task.append(task)
                     else:
-                        removed_task.append(task)
-                # 删除已经处理完的任务并为其计算奖励
-                for task in removed_task:
-                    if task.aim == task.vehicle:
-                        print("任务{}卸载给自己".format(task.vehicle.id))
-                    print("任务{}已完成，实际传输花费{}ms，实际计算花费{}ms".format(task.vehicle.id, task.trans_time,
-                                                                                  task.precess_time))
-                    total_task.remove(task)
-                    # 收回计算资源
-                    task.aim.resources += task.compute_resource
+                        if task.aim == task.vehicle:
+                            print("任务{}卸载给自己".format(task.vehicle.id))
+                            print("任务{}已完成，实际传输花费{}ms，实际计算花费{}ms".format(task.vehicle.id,
+                                                                                          task.trans_time,
+                                                                                          task.precess_time))
+                        # 收回计算资源
+                        task.aim.resources += task.compute_resource
+                vehicle.accept_task = retain_task
 
         # 更新mec的资源信息
         for i, mec in enumerate(self.MECs):
             total_task = mec.accept_task
             size = len(total_task)
             if size > 0 and mec.resources > 0:
-                removed_task = []
+                retain_task = []
                 for task in mec.accept_task:
                     f = task.compute_resource
                     precessed_time = task.need_precess_cycle / f
                     task.precess_time += time
                     if precessed_time > time:
                         task.need_precess_cycle -= f * time
+                        retain_task.append(task)
                     else:
-                        removed_task.append(task)
-                # 删除已经处理完的任务
-                for task in removed_task:
-                    print("任务{}已完成，传输花费{}ms，计算花费{}ms".format(task.vehicle.id, task.trans_time,
-                                                                          task.precess_time))
-                    total_task.remove(task)
-                    # 收回计算资源
-                    task.aim.resources += task.compute_resource
+                        print("任务{}已完成，传输花费{}ms，计算花费{}ms".format(task.vehicle.id, task.trans_time,
+                                                                              task.precess_time))
+                        # 收回计算资源
+                        task.aim.resources += task.compute_resource
+                mec.accept_task = retain_task
 
         # 分配任务信息（在计算之后执行是因为将一个时隙看作为原子操作，因此这个时隙接受到的任务不能进行计算）
         self.distribute_task(cur_frame=cur_frame)
