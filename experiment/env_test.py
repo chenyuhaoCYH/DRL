@@ -53,13 +53,15 @@ if __name__ == '__main__':
         print()
 
     # 测试环境运行
-    for i in range(10000):
-        action = []
-        for j in range(40):
-            action.append(np.random.randint(0, 7))
+    for i in range(1000):
+        action1 = []
+        action2 = []
+        action3 = []
         for j in range(20):
-            action.append(round(np.random.random(), 2))
-        env.step(action)
+            action1.append(np.random.randint(0, 11))
+            action2.append(np.random.randint(0, vehicles[j].len_task+1))
+            action3.append(round(np.random.random(), 2))
+        env.step(action1, action2, action3)
         # print("当前状态:", state)
         # print("下一状态:", next_state)
         # print("车状态:", vehicleState)
@@ -67,4 +69,4 @@ if __name__ == '__main__':
         # print("当前奖励:", reward)
         # print("每个奖励,", vehicleReward)
         # print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
-        print("reward:", env.Reward)
+        print("average reward:", env.Reward)

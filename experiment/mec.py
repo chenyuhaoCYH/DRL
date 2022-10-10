@@ -45,13 +45,11 @@ class MEC:
 
     def get_state(self):
         """
-        :return:state 维度：1+2+2 6维[id，loc_x,loc_y,resources,sum_needDeal_task1and2,sum_needDeal_task3]
+        :return:state 维度：1+2+2 3维[id，loc_x,loc_y,resources]
         """
         self.state = []
         self.state.extend(self.loc)
         self.state.append(self.resources)
-        self.state.append(self.sum_needDeal_task)
-        self.state.append(self.len_action)
         return self.state
 
 
