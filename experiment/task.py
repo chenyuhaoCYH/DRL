@@ -21,6 +21,8 @@ class Task:
         self.need_trans_size = self.size * np.power(2, 10)  # Kb 还剩余多少未传输完成
         self.need_precess_cycle = self.cycle * self.size * 1000  # Mb * cycle/byte =M cycle 还剩余多少轮次未完成（10^6)
 
+        self.rate = 0  # 当前速率
+
         self.compute_resource = 0
         self.hold_on_time = 0
 

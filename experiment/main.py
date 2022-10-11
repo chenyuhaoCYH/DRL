@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
+import argparse
 import os
 import time
 from collections import namedtuple
 
+import ptan
 import torch
 import torch.nn.functional as F
-from torch.distributions.categorical import Categorical
-from experiment import test_net
-from env import Env
-from memory import ReplayMemory
-import model
+from experiment import test_net, model
+from experiment.env import Env
+from experiment.memory import ReplayMemory
 from tensorboardX import SummaryWriter
-import ptan
-import argparse
-import numpy as np
+from torch.distributions.categorical import Categorical
 
 ENV_ID = "computing offloading"
 GAMMA = 0.99
@@ -28,8 +26,7 @@ PPO_EPOCHES = 10
 PPO_BATCH_SIZE = 64
 
 TEST_ITERS = 10000
-Experience = namedtuple('Transition', ['state', 'task_state', 'action', 'reward', 'next_state',
-                                       'next_task_state'])  # Define a transition tuple
+Experience = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'))  # Define a transition tuple
 
 
 # 将list装换成tensor存入缓冲池中
@@ -71,16 +68,15 @@ def calc_adv_ref(trajectory, net_crt, states_v, device="cpu"):
 
 
 # 将状态信息放入各自的缓冲池中
-# def push(env, state, actions, next_state):
-#     for i, vehicle in enumerate(env.vehicles):
-#         if vehicle.task is not None:  # 没有任务不算经验
-#             continue
-#         exp = Experience(state, actions[i], env.vehicleReward[i][-1], next_state)
-#         vehicle.buffer.append(exp)
+def push(env, state, actions, next_state):
+    for i, vehicle in enumerate(env.vehicles):
+        if vehicle.task is not None:  # 没有任务不算经验
+            continue
+        exp = Experience(state, actions[i], env.vehicleReward[i][-1], next_state)
+        vehicle.buffer.append(exp)
 
 
 if __name__ == '__main__':
-    # 参数配置
     time = str(time.time())
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action='store_true', help='Enable CUDA')
@@ -94,23 +90,17 @@ if __name__ == '__main__':
     save_path = os.path.join("saves", "ppo-" + args.name)
     os.makedirs(save_path, exist_ok=True)
 
-    # 训练环境
     env = Env()
     env.reset()
-    # 测试环境
     test_env = Env()
     test_env.reset()
 
-    # 去除任务的状态空间
     act_state = len(env.vehicles[0].otherState)
-    # 任务空间
-    task_dim = np.array([env.vehicles[0].taskState]).shape
-    # 动作空间
     act_action = 1 + 1 + len(env.vehicles[0].neighbor)
 
     act_nets = []
     for i in env.vehicles:
-        act_net = model.ModelActor(act_state, act_action, task_dim)
+        act_net = model.ModelActor(act_state, act_action)
         act_nets.append(act_net)
 
     crt_net = model.ModelCritic(len(env.otherState))
@@ -131,32 +121,19 @@ if __name__ == '__main__':
     best_reward = None
 
     while True:
-        # 卸载动作
-        action_act = []
-        # 选择任务动作
-        action_task = []
+        action = []
         step_idx += 1
 
         with torch.no_grad():
             for i, act_net in enumerate(act_nets):
-                _, action_pro, _, task_pro = act_net(torch.tensor([env.vehicles[i].otherState], dtype=torch.float32),
-                                                     torch.tensor([[env.vehicles[i].taskState]]))
+                _, pro = act_net(torch.tensor(env.vehicles[i].otherState))
                 # print(pro)
                 # act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
-                # 按照概率采样
-                act = action_pro.sample()
-                task = task_pro.sample()
+                act = pro.sample()
                 # print(act)
-                # 加入数组中
-                action_act.append(act.item())
-                action_task.append(task.item())
-        # print(action_act)
-        # print(action_task)
-        # 执行动作
-        action_act.extend(action_task)
-        print(action_act)
-        state, task_state, vehicles_state, new_vehicles_state, new_state, new_task_state, Reward, reward = env.step(
-            action_act)
+                action.append(act.item())
+
+        state, cur_action, reward, next_state = env.step(action)
 
         # 测试
         if step_idx % TEST_ITERS == 0:
@@ -179,12 +156,11 @@ if __name__ == '__main__':
             # if vehicle.task is not None:  # 没有任务不算经验
             #     continue
             # 存储车经验
-            action = [env.offloadingActions[i], env.taskActions[i]]
-            exp = Experience(vehicles_state[i], [task_state[i]], action, reward[i],
-                             new_vehicles_state[i], [new_task_state[i]])
+            exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.vehicleReward[i][-1],
+                             env.vehicles[i].otherState)
             vehicle.buffer.append(exp)
         # 存储系统经验
-        env.buffer.append(Experience(state, [task_state], action_act, Reward, new_state, [new_task_state]))
+        env.buffer.append(Experience(state, cur_action, reward, next_state))
 
         print("the {} reward:{}".format(step_idx, reward))
         if step_idx % TRAJECTORY_SIZE != 0:
@@ -192,47 +168,30 @@ if __name__ == '__main__':
 
         # print("存储池", env.vehicles[0].buffer[0])
         # print(len(env.vehicles[0].buffer))
-        # 车的缓冲池
         traj_states = [[] for _ in range(env.num_Vehicles)]
-        traj_taskStates = [[] for _ in range(env.num_Vehicles)]
         traj_actions = [[] for _ in range(env.num_Vehicles)]
-
         traj_states_v = [[] for _ in range(env.num_Vehicles)]
-        traj_taskStates_v = [[] for _ in range(env.num_Vehicles)]
         traj_actions_v = [[] for _ in range(env.num_Vehicles)]
         old_logprob_v = [[] for _ in range(env.num_Vehicles)]
 
-        # 环境的缓冲池
-        # 其他状态
-        traj_statesOfenv = [t.next_state for t in env.buffer]
-        # 任务状态
-        traj_taskStatesOfenv = [t.next_task_state for t in env.buffer]
-        # 转成tensor
-        traj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
-        traj_taskStatesOfenv_v = torch.FloatTensor(traj_taskStatesOfenv)
+        traj_statesOfenv = [t.otherState for t in env.buffer]
+        tarj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
 
-        # 收集每辆车的经验
         for i in range(env.num_Vehicles):
-            traj_states[i] = [t.next_state for t in env.vehicles[i].buffer]
-            traj_taskStates = [t.next_task_state for t in env.vehicles[i].buffer]
+            traj_states[i] = [t.otherState for t in env.vehicles[i].buffer]
             traj_actions[i] = [t.action for t in env.vehicles[i].buffer]
-            # 转成tensor
+
             traj_states_v[i] = torch.FloatTensor(traj_states[i])
             traj_states_v[i] = traj_states_v[i].to(device)
-
-            traj_taskStates_v[i] = torch.FloatTensor([traj_taskStates[i]])
-            traj_taskStates_v[i] = traj_taskStates_v[i].to(device)
 
             traj_actions_v[i] = torch.FloatTensor(traj_actions[i])
             traj_actions_v[i] = traj_actions_v[i].to(device)
 
-            _, pro_act, _, pro_task = act_nets[i](traj_states_v[i], traj_taskStates_v[i])
-            action_act = [pro_act.sample(), pro_task.sample()]
-            ans = torch.sum(pro_act, dim=1)
-            ans1 = torch.sum(pro_task, dim=1)
+            _, pro_v = act_nets[i](traj_states_v[i])
+            action = pro_v.sample()
+            # ans=torch.sum(pro_v,dim=1)
             # print(ans.data)
-            old_logprob_v[i] = Categorical.log_prob(pro_act, action_act[0]) + Categorical.log_prob(pro_task,
-                                                                                                   action_act[1])
+            old_logprob_v[i] = Categorical.log_prob(pro_v, action)
 
         traj_adv_v, traj_ref_v = calc_adv_ref(env.buffer, crt_net, traj_statesOfenv)
 
@@ -255,7 +214,7 @@ if __name__ == '__main__':
                                    PPO_BATCH_SIZE):
                 batch_l = batch_ofs + PPO_BATCH_SIZE
 
-                states_e = traj_statesOfenv_v[batch_ofs:batch_l]
+                states_e = tarj_statesOfenv_v[batch_ofs:batch_l]
                 batch_adv_v = traj_adv_v[batch_ofs:batch_l]
                 batch_adv_v = batch_adv_v.unsqueeze(-1)
                 batch_ref_v = traj_ref_v[batch_ofs:batch_l]
@@ -280,8 +239,8 @@ if __name__ == '__main__':
                     actions_v[i] = traj_actions_v[i][batch_ofs:batch_l]
 
                     act_opts[i].zero_grad()
-                    _, pro_act = act_nets[i](states_v[i])
-                    logprob_pi_v = Categorical.log_prob(pro_act, actions_v[i])
+                    _, pro_v = act_nets[i](states_v[i])
+                    logprob_pi_v = Categorical.log_prob(pro_v, actions_v[i])
                     ratio_v = torch.exp(
                         logprob_pi_v - batch_old_logprob_v[i])
                     surr_obj_v = batch_adv_v * ratio_v

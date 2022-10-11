@@ -196,6 +196,8 @@ class Env:
             # 获得卸载对象
             aim = self.get_aim(vehicle, offloadingAction)
             task.aim = aim
+            # 计算实时速率，用作奖励函数计算
+            task.rate = self.compute_rate(vehicle, aim)
 
             # 卸载给本地 直接放到任务队列中
             if vehicle == aim:
@@ -364,7 +366,7 @@ class Env:
         if vehicle == aim:
             trans_time = 0
         else:
-            cur_rate = self.compute_rate(vehicle, aim)
+            cur_rate = task.rate
             trans_time = task.need_trans_size / cur_rate
         cur_compute = task.compute_resource
         compute_time = task.need_precess_cycle / cur_compute

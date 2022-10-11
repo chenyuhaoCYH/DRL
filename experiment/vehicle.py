@@ -12,7 +12,7 @@ MAX_TASK = 10  # 任务队列最大长度
 
 CAPACITY = 20000  # 缓冲池大小
 TASK_DISTRIBUTE = 4  # 可分的任务段数
-TASK_SOLT = 5  # 任务产生时隙
+TASK_SOLT = 10  # 任务产生时隙
 
 np.random.seed(0)
 
