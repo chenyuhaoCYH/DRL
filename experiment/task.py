@@ -2,8 +2,6 @@ import numpy as np
 
 np.random.seed(2)
 
-Fv = 400  # 车最大计算能力  MHZ
-
 
 class Task:
     """
