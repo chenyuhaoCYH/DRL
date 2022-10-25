@@ -2,8 +2,7 @@ import ptan
 import numpy as np
 import torch
 from torch.distributions.categorical import Categorical
-
-from env import Env
+from experiment.env import Env
 
 
 def test_net(nets, env: Env, count=10):

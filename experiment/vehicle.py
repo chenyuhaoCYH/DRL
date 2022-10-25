@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 
+from experiment.memory import ExperienceBuffer
 from task import Task
 
 Dv = 50  # 车的最大通信范围
@@ -12,7 +13,7 @@ MAX_TASK = 10  # 任务队列最大长度
 
 CAPACITY = 20000  # 缓冲池大小
 TASK_DISTRIBUTE = 4  # 可分的任务段数
-TASK_SOLT = 10  # 任务产生时隙
+TASK_SOLT = 20  # 任务产生时隙
 
 np.random.seed(0)
 
@@ -60,7 +61,7 @@ class Vehicle:
         # 去除邻居的状态信息用于邻居车观察和全局critic的处理
         self.excludeNeighbor_state = []
         # 缓冲池
-        self.buffer = []  # ExperienceBuffer(capacity=CAPACITY)
+        self.buffer = ExperienceBuffer(capacity=CAPACITY)
         # 总奖励
         self.reward = []
         # 任务溢出的数量
@@ -96,9 +97,9 @@ class Vehicle:
     # 产生任务 传入当前时间
     def create_work(self):
         # 每隔一段时间进行一次任务产生
-        if (self.cur_frame - self.lastCreatWorkTime) >= TASK_SOLT:
+        if (self.cur_frame - self.lastCreatWorkTime) % TASK_SOLT == 0:
             # 每次有0.6的概率产生任务
-            if random.random() < 0.9:
+            if random.random() < 0.6:
                 if self.len_task < MAX_TASK:  # 队列不满
                     task = Task(self, self.cur_frame)
                     self.lastCreatWorkTime = self.cur_frame

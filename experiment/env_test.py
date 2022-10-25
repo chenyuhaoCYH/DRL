@@ -58,9 +58,11 @@ if __name__ == '__main__':
         action2 = []
         action3 = []
         for j in range(20):
-            action1.append(np.random.randint(0, 11))
-            action2.append(np.random.randint(0, vehicles[j].len_task+1))
-            action3.append(round(np.random.random(), 2))
+            action1.append(0)
+            # action2.append(np.random.randint(0, 7))
+            action2.append(0)
+            # action3.append(round(np.random.random(), 2))
+            action3.append(0.8)
         env.step(action1, action2, action3)
         # print("当前状态:", state)
         # print("下一状态:", next_state)
@@ -69,4 +71,4 @@ if __name__ == '__main__':
         # print("当前奖励:", reward)
         # print("每个奖励,", vehicleReward)
         # print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
-        print("average reward:", env.Reward)
+        # print("average reward:", env.Reward)
