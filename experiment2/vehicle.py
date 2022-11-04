@@ -3,39 +3,37 @@ import random
 
 import numpy as np
 
-from experiment.memory import ExperienceBuffer
+from experiment2.memory import ExperienceBuffer
 from task import Task
 
 Dv = 50  # 车的最大通信范围
 Fv = 4000  # 车最大计算能力  MHZ
-alpha = 0.25
 MAX_TASK = 10  # 任务队列最大长度
 
 CAPACITY = 20000  # 缓冲池大小
-TASK_DISTRIBUTE = 4  # 可分的任务段数
-TASK_SOLT = 20  # 任务产生时隙
+TASK_SOLT = 10  # 任务产生时隙
 
 np.random.seed(0)
+
+direction_map = {"d": 1, "u": 2, "l": 3, "r": 4}
 
 
 class Vehicle:
     # 位置：x，y 速度、方向：-1左，1右
-    def __init__(self, id, loc_x, loc_y, direction, velocity=20):
+    def __init__(self, id, position, direction, velocity=20):
+        self.id = id
         # 车的位置信息
-        self.loc_x = loc_x
-        self.loc_y = loc_y
-        self.loc = [loc_x, loc_y]
+        self.loc_x = position[0]
+        self.loc_y = position[1]
+        self.position = position
         self.velocity = velocity  # m/s
         self.direction = direction
-        self.id = id
-        # 功率和信道增益
-        self.alpha = alpha
         # 通信范围
         self.range = Dv
         # 邻居表
         self.neighbor = []
-        # 最近的mec
-        self.mec_lest = None
+        # mec
+        self.Mec = None
         # 当前时间
         self.cur_frame = 0
         # 接受的任务的列表
@@ -54,6 +52,7 @@ class Vehicle:
         self.total_task = []
         # 任务队列的长度
         self.len_task = len(self.total_task)
+
         # 当前状态信息
         self.otherState = []
         # 当前任务队列状态
@@ -66,8 +65,6 @@ class Vehicle:
         self.reward = []
         # 任务溢出的数量
         self.overflow = 0
-        # 需等待时长
-        self.hold_on = 0
         # 上一个任务产生的时间
         self.lastCreatWorkTime = 0
 
@@ -76,13 +73,13 @@ class Vehicle:
     # 获得位置
     @property
     def get_location(self):
-        return self.loc
+        return self.position
 
     # 设置位置
     def set_location(self, loc_x, loc_y):
         self.loc_x = loc_x
         self.loc_y = loc_y
-        self.loc = [self.loc_x, self.loc_y]
+        self.position = [self.loc_x, self.loc_y]
 
     # 获得x
     @property
@@ -96,7 +93,9 @@ class Vehicle:
 
     # 产生任务 传入当前时间
     def create_work(self):
-        # 每隔一段时间进行一次任务产生
+        if self.id % 3 == 0:
+            return
+            # 每隔一段时间进行一次任务产生
         if (self.cur_frame - self.lastCreatWorkTime) % TASK_SOLT == 0:
             # 每次有0.6的概率产生任务
             if random.random() < 0.6:
@@ -121,16 +120,23 @@ class Vehicle:
         self.taskState = []
 
         # 位置信息  4
-        self.otherState.extend(self.loc)
+        self.otherState.extend(self.position)
         self.otherState.append(self.velocity)
-        self.otherState.append(self.direction)
-        self.excludeNeighbor_state.extend(self.loc)
+        self.otherState.append(direction_map.get(self.direction))
+        self.excludeNeighbor_state.extend(self.position)
         self.excludeNeighbor_state.append(self.velocity)
-        self.excludeNeighbor_state.append(self.direction)
+        self.excludeNeighbor_state.append(direction_map.get(self.direction))
 
         # 资源信息（可用资源）
         self.otherState.append(self.resources)
         self.excludeNeighbor_state.append(self.resources)
+
+        # 当前处理的任务量
+        self.otherState.append(self.sum_needDeal_task)
+        self.excludeNeighbor_state.append(self.sum_needDeal_task)
+        # 当前接受传输的任务量
+        self.otherState.append(self.len_action)
+        self.excludeNeighbor_state.append(self.sum_needDeal_task)
 
         # 当前是否有任务在传输
         self.excludeNeighbor_state.append(self.trans_task)
@@ -143,26 +149,28 @@ class Vehicle:
         # else:
         #     self.otherState.append(0)
         #     self.excludeNeighbor_state.append(0)
-        self.otherState.append(self.len_task)  # 当前队列长度
+
+        # 当前队列长度
+        self.otherState.append(self.len_task)
         self.excludeNeighbor_state.append(self.len_task)
 
         # 邻居表  7*数量
         for neighbor in self.neighbor:
             self.otherState.extend(neighbor.position)  # 位置
             self.otherState.append(neighbor.velocity)  # 速度
-            self.otherState.append(neighbor.direction)  # 方向
+            self.otherState.append(direction_map.get(neighbor.direction))  # 方向
             self.otherState.append(neighbor.resources)  # 可用资源
+            self.otherState.append(neighbor.sum_needDeal_task)  # 处理任务长度
+            self.otherState.append(neighbor.len_action)  # 当前正在传输任务数量
 
-        # 最近mec的状态 6
-        if self.mec_lest is not None:
-            self.otherState.extend(self.mec_lest.get_state())
+        self.otherState.extend(self.Mec.state)
 
         # 任务状态信息
         for i in range(MAX_TASK):
             if i < self.len_task:
                 task = self.total_task[i]
-                self.taskState.append([task.create_time, task.need_trans_size, task.need_precess_cycle, task.max_time])
+                self.taskState.append([task.need_trans_size, task.need_precess_cycle, task.max_time])
             else:
-                self.taskState.append([0, 0, 0, 0])
+                self.taskState.append([0, 0, 0])
 
         return self.excludeNeighbor_state
