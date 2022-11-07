@@ -5,7 +5,7 @@ import sys
 from random import randint
 import numpy as np
 from mec import MEC
-from experiment.vehicle import Vehicle
+from vehicle import Vehicle
 
 MAX_TASK = 5  # 只能选前五个任务
 y = [2, 6, 10, 14]  # 车子y的坐标集 # 共四条车道

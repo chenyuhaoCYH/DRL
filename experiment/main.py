@@ -7,9 +7,9 @@ from collections import namedtuple
 import ptan
 import torch
 import torch.nn.functional as F
-from experiment import test_net, model
-from experiment.env import Env
-from experiment.memory import ReplayMemory
+from . import test_net, model
+from env import Env
+from memory import ReplayMemory
 from tensorboardX import SummaryWriter
 from torch.distributions.categorical import Categorical
 

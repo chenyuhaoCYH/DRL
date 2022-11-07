@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-import experiment2.model as model
-from experiment2.env import Env
+import model as model
+from env import Env
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':

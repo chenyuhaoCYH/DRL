@@ -3,7 +3,7 @@
 """
 import numpy as np
 from mec import MEC
-from experiment2.vehicle import Vehicle
+from vehicle import Vehicle
 
 MAX_TASK = 5  # 只能选前五个任务
 

@@ -3,8 +3,8 @@ import torch
 
 import matplotlib
 from pylab import mpl
-from experiment3 import model
-from experiment3.env import Env
+from . import model
+from env import Env
 import matplotlib.pyplot as plt
 
 # 设置显示中文字体

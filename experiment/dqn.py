@@ -11,8 +11,8 @@ import torch.optim as optim
 from pylab import mpl
 import netron
 
-from experiment.env import Env
-from experiment.model import DQN
+from env import Env
+from model import DQN
 
 # 设置显示中文字体
 mpl.rcParams["font.sans-serif"] = ["SimHei"]

@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 
-from experiment2.memory import ExperienceBuffer
+from memory import ExperienceBuffer
 from task import Task
 
 Dv = 50  # 车的最大通信范围
