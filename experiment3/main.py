@@ -7,7 +7,7 @@ from collections import namedtuple
 import ptan
 import torch
 import torch.nn.functional as F
-from experiment2 import test_net, model
+from experiment2 import  model
 from experiment2.env import Env
 from experiment2.memory import ReplayMemory
 from tensorboardX import SummaryWriter

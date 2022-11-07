@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import random
-from queue import Queue
 
 import numpy as np
 
@@ -14,6 +13,9 @@ MAX_TASK = 10  # 任务队列最大长度
 CAPACITY = 20000  # 缓冲池大小
 TASK_SOLT = 10  # 任务产生时隙
 
+# 等待队列最长长度
+MAX_QUEUE = 10
+
 np.random.seed(0)
 
 direction_map = {"d": 1, "u": 2, "l": 3, "r": 4}
@@ -21,7 +23,7 @@ direction_map = {"d": 1, "u": 2, "l": 3, "r": 4}
 
 class Vehicle:
     # 位置：x，y 速度、方向：-1左，1右
-    def __init__(self, id, position, direction, velocity=20):
+    def __init__(self, id, position, direction, velocity=20, max_queue=MAX_QUEUE):
         self.id = id
         # 车的位置信息
         self.loc_x = position[0]
@@ -40,7 +42,13 @@ class Vehicle:
         # 接受的任务的列表(最多同时处理5个任务)
         self.accept_task = []
         # 最多处理任务量
-        self.max_task = 5
+        self.max_task = 3
+        # 等待队列最长长度
+        self.max_queue = max_queue
+        # 等待计算的任务队列（理解为挂起状态）
+        self.task_queue = []
+        # 用于奖励计算的任务队列
+        self.task_queue_for_reward = []
         # 接受任务的数量
         self.sum_needDeal_task = 0
         # 此时刻有多少动作选则我
@@ -55,8 +63,6 @@ class Vehicle:
         self.total_task = []
         # 任务队列的长度
         self.len_task = len(self.total_task)
-        # 等待计算的任务队列（理解为挂起状态）
-        self.task_queue = Queue(10)
 
         # 当前状态信息
         self.otherState = []
@@ -73,6 +79,7 @@ class Vehicle:
         # 上一个任务产生的时间
         self.lastCreatWorkTime = 0
 
+        # 产生任务
         self.create_work()
 
     # 获得位置
@@ -109,10 +116,10 @@ class Vehicle:
                     self.lastCreatWorkTime = self.cur_frame
                     self.total_task.append(task)
                     self.len_task += 1
-                    print("第{}辆车产生了任务".format(self.id))
+                    # print("第{}辆车产生了任务".format(self.id))
                     self.overflow = 0
                 else:
-                    print("第{}辆车任务队列已满".format(self.id))
+                    # print("第{}辆车任务队列已满".format(self.id))
                     self.overflow = 1
 
     """

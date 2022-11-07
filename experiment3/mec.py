@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# 导入队列
-from queue import Queue
-
 RANGE_MEC = 200  # MEC通信范围
 RESOURCE = 20000  # 可用资源  MHz
+MAX_QUEUE = 10
 
 
 # 边缘服务器
 class MEC:
-    def __init__(self, position, resources=RESOURCE):
+    def __init__(self, position, resources=RESOURCE, max_queue=MAX_QUEUE):
         self.loc_x = position[0]
         self.loc_y = position[1]
         self.loc = position
@@ -27,7 +25,11 @@ class MEC:
         # 此时刻有多少动作选则我 多少任务选择传输给我
         self.len_action = 0
         # 等待计算的任务队列（理解为挂起状态）
-        self.task_queue = Queue(10)
+        self.task_queue = []
+        # 用于奖励计算的任务队列
+        self.task_queue_for_reward = []
+        # 队列最长长度
+        self.max_queue = max_queue
         # 当前状态
         self.get_state()
 
