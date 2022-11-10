@@ -23,7 +23,7 @@ if __name__ == '__main__':
     for i in range(N):
         tgt_model = model.DQN(len(vehicles[0].otherState), task_shape, 10, len(vehicles[0].neighbor) + 2)
         tgt_model.load_state_dict(torch.load(
-            "D:\pycharm\Project\VML\MyErion\experiment3\\result\\2022-11-07-18-40\\vehicle{}.pkl".format(i)))
+            "D:\pycharm\Project\VML\MyErion\experiment4\\result\\2022-11-09-17-42\\vehicle{}.pkl".format(i)))
         models.append(tgt_model)
 
     # state_v = torch.tensor([vehicles[i].otherState], dtype=torch.float32)
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         print(action1)
         print(action2)
         other_state, task_state, vehicle_state, _, _, _, Reward, reward = env.step(action1, action2)
-        vehicleReward.append(reward[1])
+        vehicleReward.append(reward[5])
         averageReward.append(Reward)
         print("第{}次车辆平均奖励{}".format(step, Reward))
 
