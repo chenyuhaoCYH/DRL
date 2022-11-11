@@ -15,6 +15,8 @@ import netron
 from env import Env
 from model import DQN
 
+np.random.seed(2)
+
 # 设置显示中文字体
 mpl.rcParams["font.sans-serif"] = ["SimHei"]
 matplotlib.rcParams['axes.unicode_minus'] = False
@@ -28,7 +30,7 @@ GAMMA = 0.99
 BATCH_SIZE = 64
 REPLAY_SIZE = 10000
 LEARNING_RATE = 1e-4
-SYNC_TARGET_FRAMES = 1000
+SYNC_TARGET_FRAMES = 100  # 更新目标网络频率
 
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 0.6
@@ -201,7 +203,7 @@ if __name__ == '__main__':
                 # print("cur_aim_loss", loss_aim.item())
                 loss_task_list.append(loss_task.item())
                 loss_aim_list.append(loss_aim.item())
-                reward_1.append(env.reward[0])
+                reward_1.append(env.reward[1])
         eliposde -= 1
 
     cur_time = time.strftime("%Y-%m-%d-%H-%M", time.localtime(time.time()))
@@ -216,14 +218,14 @@ if __name__ == '__main__':
     plt.title("奖励曲线")
     plt.show()
 
-    plt.plot(range(len(loss_task_list)), loss_task_list)
-    plt.title("任务选择损失曲线")
-    plt.show()
+    # plt.plot(range(len(loss_task_list)), loss_task_list)
+    # plt.title("任务选择损失曲线")
+    # plt.show()
+    #
+    # plt.plot(range(len(loss_aim_list)), loss_aim_list)
+    # plt.title("目标选择损失曲线")
+    # plt.show()
 
-    plt.plot(range(len(loss_aim_list)), loss_aim_list)
-    plt.title("目标选择损失曲线")
-    plt.show()
-
-    plt.plot(range(1000), reward_1[-1000:])
+    plt.plot(range(100000), reward_1[-100000:])
     plt.title("车辆一奖励曲线")
     plt.show()

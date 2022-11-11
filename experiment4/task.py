@@ -14,9 +14,9 @@ class Task:
         # 完成该任务所消耗的资源
         self.aim = None  # 传送对象
 
-        self.max_time = 30  # ms  最大容忍时间
+        self.max_time = 50  # ms  最大容忍时间
         self.size = np.random.uniform(0.2, 1)  # Mb
-        self.cycle = np.random.randint(20, 50)  # cycle/bit
+        self.cycle = np.random.randint(50, 100)  # cycle/bit
         self.need_trans_size = self.size * np.power(2, 10)  # Kb 还剩余多少未传输完成
         self.need_precess_cycle = self.cycle * self.size * 1000  # Mb * cycle/byte =M cycle 还剩余多少轮次未完成（10^6)
         self.need_time = 0  # 需要计算时间

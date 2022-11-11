@@ -1,22 +1,21 @@
 # -*- coding: utf-8 -*-
-import random
 
 import numpy as np
 
 from memory import ExperienceBuffer
 from task import Task
 
-Dv = 50  # 车的最大通信范围
+Dv = 100  # 车的最大通信范围
 Fv = 4000  # 车最大计算能力  MHZ
 MAX_TASK = 10  # 任务队列最大长度
 
-CAPACITY = 20000  # 缓冲池大小
-TASK_SOLT = 20  # 任务产生时隙
+CAPACITY = 10000  # 缓冲池大小
+TASK_SOLT = 10  # 任务产生时隙
 
 # 等待队列最长长度
 MAX_QUEUE = 10
 
-np.random.seed(0)
+np.random.seed(2)
 
 direction_map = {"d": 1, "u": 2, "l": 3, "r": 4}
 
@@ -54,7 +53,7 @@ class Vehicle:
         # 此时刻有多少动作选则我
         self.len_action = 0
         # 当前可用资源
-        self.resources = round((1 - np.random.randint(1, 5) / 10) * Fv, 2)  # MHz
+        self.resources = round((1 - np.random.randint(1, 4) / 10) * Fv, 2)  # MHz
         # 表示当前是否有任务正在传输给邻居车辆（0：没有，1：有）
         self.trans_task_for_vehicle = 0
         # 当前是否有任务正在传输给mec
@@ -111,8 +110,8 @@ class Vehicle:
             return
             # 每隔一段时间进行一次任务产生
         if (self.cur_frame - self.lastCreatWorkTime) % TASK_SOLT == 0:
-            # 每次有0.6的概率产生任务
-            if random.random() < 0.6:
+            # # 每次有0.6的概率产生任务
+            if np.random.random() < 0.6:
                 if self.len_task < MAX_TASK:  # 队列不满
                     task = Task(self, self.cur_frame)
                     self.lastCreatWorkTime = self.cur_frame

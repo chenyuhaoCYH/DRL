@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-RANGE_MEC = 200  # MEC通信范围
+RANGE_MEC = 650  # MEC通信范围 /m
 RESOURCE = 20000  # 可用资源  MHz
 MAX_QUEUE = 10
 
@@ -19,7 +19,7 @@ class MEC:
         # 当前接到需要处理的任务信息(最多同时处理10个任务)
         self.accept_task = []
         # 最多处理任务量
-        self.max_task = 5
+        self.max_task = 10
         # 接受任务的数量
         self.sum_needDeal_task = 0
         # 此时刻有多少动作选则我 多少任务选择传输给我

@@ -20,16 +20,16 @@ if __name__ == '__main__':
         print()
 
     # 测试环境运行
-    x = [[] for i in range(20)]
-    y = [[] for i in range(20)]
+    x = [[] for i in range(40)]
+    y = [[] for i in range(40)]
     for i in range(1000):
-        for j in range(20):
+        for j in range(40):
             x[j].append(env.vehicles[j].position[0])
             y[j].append(env.vehicles[j].position[1])
         action1 = []
         action2 = []
         action3 = []
-        for j in range(20):
+        for j in range(40):
             # action1.append(np.random.randint(0, 10))
             action1.append(0)
             # action2.append(np.random.randint(0, 7))

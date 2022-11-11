@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 # 设置显示中文字体
 mpl.rcParams["font.sans-serif"] = ["SimHei"]
 matplotlib.rcParams['axes.unicode_minus'] = False
+np.random.seed(2)
 
 if __name__ == '__main__':
     env = Env()
@@ -46,6 +47,7 @@ if __name__ == '__main__':
             taskAction = taskAction.detach().numpy().reshape(-1)
             aimAction = aimAction.detach().numpy().reshape(-1)
             action1.append(np.argmax(taskAction))
+            # action1.append(0)
             action2.append(np.argmax(aimAction))
 
         print(action1)
