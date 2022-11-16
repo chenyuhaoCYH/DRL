@@ -16,7 +16,7 @@ CAPACITY = 20000  # 缓冲池大小
 
 sigma = -114  # 噪声dbm
 POWER = 23  # 功率 dbm
-BrandWidth_Mec = 100  # MHz
+BrandWidth_Mec = 1000  # MHz
 
 gama = 1.25 * (10 ** -10)  # 能量系数 J/M cycle
 a = 0.6  # 奖励中时间占比
@@ -225,20 +225,23 @@ class Env:
             else:
                 task = vehicle.total_task[action]
 
+            # 去除被选择的任务
+            vehicle.total_task.remove(task)
+            vehicle.len_task -= 1
             # 初始化任务信息
             # 获得卸载对象
             aim = self.get_aim(vehicle, offloadingAction)
             task.aim = aim
 
             # 目标任务等待队列已满
-            if len(aim.task_queue) >= aim.max_queue:
+            if len(aim.task_queue) == aim.max_queue:
                 # print("选择了非法动作")
                 self.reward[i] = Ki - Kq * vehicle.len_task - ko * vehicle.overflow
                 continue
 
             # 如果达到最高计算任务  放置等待队列中用于计算奖励
             if len(aim.accept_task) >= aim.max_task:
-                print("需要等待")
+                # print("需要等待")
                 aim.task_queue_for_reward.append(task)
 
             # 计算实时速率，用作奖励函数计算
@@ -249,14 +252,14 @@ class Env:
             # 卸载给本地 直接放到任务队列中
             if vehicle == aim:
                 # 出队列时间
-                task.pick_time = self.cur_frame
+                task.pick_time = self.cur_frame % 50
                 if len(aim.accept_task) >= aim.max_task:
                     vehicle.task_queue.append(task)
                 else:
                     vehicle.accept_task.append(task)
-                vehicle.total_task.remove(task)
+
                 vehicle.cur_task = task
-                vehicle.len_task -= 1
+
                 continue
 
             if type(aim) == Vehicle and vehicle.trans_task_for_vehicle == 1:
@@ -273,14 +276,12 @@ class Env:
                 self.reward[i] = Ki - Kq * vehicle.len_task - ko * vehicle.overflow
             # 需要传输 卸载给远程
             else:
-                task.pick_time = self.cur_frame
+                task.pick_time = self.cur_frame % 50
                 task.aim = aim
                 task.rate = self.compute_rate(task.vehicle, task.aim)
 
                 aim.len_action += 1
-                vehicle.len_task -= 1
                 vehicle.cur_task = task
-                vehicle.total_task.remove(task)
                 self.need_trans_task.append(task)
                 if type(aim) == MEC:
                     vehicle.trans_task_for_mec = 1
@@ -390,7 +391,7 @@ class Env:
         # 计算时间
         compute_time = task.need_time
         # 总时间=出队列时间-创建时间+传输时间+队列持有时间+处理时间
-        sum_time = trans_time + compute_time + task.pick_time - task.create_time + task.hold_time
+        sum_time = trans_time + compute_time + np.abs(task.pick_time - task.create_time) + task.hold_time
 
         print("pick_time", task.pick_time)
         print("create_time", task.create_time)
@@ -415,7 +416,7 @@ class Env:
 
         print("总时长sum_time: ", sum_time)
         print("energy:", energy)
-        reward += 2 - T3 * (a * sum_time + b*energy)
+        reward += 2 - T3 * (a * sum_time + b * energy)
 
         if sum_time > task.max_time:
             deltaTime = sum_time - task.max_time
@@ -466,9 +467,9 @@ class Env:
                 else:
                     self.vehicles[vehicle.id].trans_task_for_vehicle = 0
                 # print("第{}车任务传输完成，真实花费{}ms".format(vehicle.id, task.trans_time))
-                if len(aim.accept_task) < aim.max_task:
+                if len(aim.accept_task) < aim.max_task:  # 能够直接处理
                     aim.accept_task.append(task)
-                else:
+                elif len(aim.task_queue) < aim.max_queue:  # 能够进入等待队列
                     aim.task_queue.append(task)
                 aim.len_action -= 1
             else:

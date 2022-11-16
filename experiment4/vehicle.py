@@ -113,7 +113,7 @@ class Vehicle:
             # # 每次有0.6的概率产生任务
             if np.random.random() < 0.6:
                 if self.len_task < MAX_TASK:  # 队列不满
-                    task = Task(self, self.cur_frame)
+                    task = Task(self, self.cur_frame % 50)
                     self.lastCreatWorkTime = self.cur_frame
                     self.total_task.append(task)
                     self.len_task += 1

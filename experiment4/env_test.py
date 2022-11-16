@@ -33,7 +33,7 @@ if __name__ == '__main__':
             # action1.append(np.random.randint(0, 10))
             action1.append(0)
             # action2.append(np.random.randint(0, 7))
-            action2.append(0)
+            action2.append(1)
         other_state, task_state, vehicle_state, _, _, _, Reward, _ = env.step(action1, action2)
         reward.append(Reward)
         print("第{}次平均奖励{}".format(i, Reward))
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         # print("每个奖励,", vehicleReward)
         # print("当前有{}任务没有传输完成".format(len(env.need_trans_task)))
         # print("average reward:", env.Reward)
-    plt.figure(figsize=(100, 100))
+    # plt.figure(figsize=(100, 100))
     # fix, ax = plt.subplots(5, 4)
     #
     # for i in range(5):
@@ -53,7 +53,6 @@ if __name__ == '__main__':
     #         number = i * 4 + j
     #         ax[i, j].plot(x[number], y[number])
     #         ax[i, j].set_title('vehicle {}'.format(number))
-    # plt.plot(range(len(reward)), reward)
-    plt.plot([1, 2, 3], [1, 2, 3])
+    plt.plot(range(len(reward)), reward)
     print(reward)
     plt.show()

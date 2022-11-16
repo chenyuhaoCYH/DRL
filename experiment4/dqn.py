@@ -35,6 +35,7 @@ SYNC_TARGET_FRAMES = 100  # 更新目标网络频率
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 0.6
 EPSILON_FINAL = 0.01
+EPSILON = 500000
 
 RESET = 100000  # 重置游戏次数
 
@@ -166,7 +167,7 @@ if __name__ == '__main__':
     reward_1 = []
 
     epsilon = EPSILON_START
-    eliposde = 400000
+    eliposde = EPSILON
     while eliposde > 0:
         # 重置游戏
         # if frame_idx % RESET == 0:
@@ -229,3 +230,4 @@ if __name__ == '__main__':
     plt.plot(range(100000), reward_1[-100000:])
     plt.title("车辆一奖励曲线")
     plt.show()
+
