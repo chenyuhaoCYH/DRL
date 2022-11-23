@@ -95,7 +95,7 @@ if __name__ == '__main__':
     test_env = Env()
     test_env.reset()
 
-    act_state = len(env.vehicles[0].otherState)
+    act_state = len(env.vehicles[0].self_state)
     act_action = 1 + 1 + len(env.vehicles[0].neighbor)
 
     act_nets = []
@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
         with torch.no_grad():
             for i, act_net in enumerate(act_nets):
-                _, pro = act_net(torch.tensor(env.vehicles[i].otherState))
+                _, pro = act_net(torch.tensor(env.vehicles[i].self_state))
                 # print(pro)
                 # act = np.random.choice(pro.shape[0], 1, p=pro.detach().numpy())
                 act = pro.sample()
@@ -157,7 +157,7 @@ if __name__ == '__main__':
             #     continue
             # 存储车经验
             exp = Experience(env.vehicles_state[i], env.offloadingActions[i], env.vehicleReward[i][-1],
-                             env.vehicles[i].otherState)
+                             env.vehicles[i].self_state)
             vehicle.buffer.append(exp)
         # 存储系统经验
         env.buffer.append(Experience(state, cur_action, reward, next_state))
@@ -174,11 +174,11 @@ if __name__ == '__main__':
         traj_actions_v = [[] for _ in range(env.num_Vehicles)]
         old_logprob_v = [[] for _ in range(env.num_Vehicles)]
 
-        traj_statesOfenv = [t.otherState for t in env.buffer]
+        traj_statesOfenv = [t.self_state for t in env.buffer]
         tarj_statesOfenv_v = torch.FloatTensor(traj_statesOfenv)
 
         for i in range(env.num_Vehicles):
-            traj_states[i] = [t.otherState for t in env.vehicles[i].buffer]
+            traj_states[i] = [t.self_state for t in env.vehicles[i].buffer]
             traj_actions[i] = [t.action for t in env.vehicles[i].buffer]
 
             traj_states_v[i] = torch.FloatTensor(traj_states[i])

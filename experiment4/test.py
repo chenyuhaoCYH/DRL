@@ -20,9 +20,9 @@ if __name__ == '__main__':
     vehicles = env.vehicles
     models = []
 
-    task_shape = np.array([vehicles[0].taskState]).shape
+    task_shape = np.array([vehicles[0].task_state]).shape
     for i in range(N):
-        tgt_model = model.DQN(len(vehicles[0].otherState), task_shape, 10, len(vehicles[0].neighbor) + 2)
+        tgt_model = model.DQN(len(vehicles[0].self_state), task_shape, 10, len(vehicles[0].neighbor) + 2)
         tgt_model.load_state_dict(torch.load(
             "D:\pycharm\Project\VML\MyErion\experiment4\\result\\2022-11-16-08-07\\vehicle{}.pkl".format(i)))
         models.append(tgt_model)
@@ -38,8 +38,8 @@ if __name__ == '__main__':
         action2 = []
 
         for i in range(N):
-            state_v = torch.tensor([vehicles[i].otherState], dtype=torch.float32)
-            taskState_v = torch.tensor([[vehicles[i].taskState]], dtype=torch.float32)
+            state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
+            taskState_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
             taskAction, aimAction = models[i](state_v, taskState_v)
 
             # taskAction = np.array(taskAction, dtype=np.float32).reshape(-1)

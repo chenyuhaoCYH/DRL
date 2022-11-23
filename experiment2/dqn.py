@@ -53,15 +53,15 @@ def play_step(env, epsilon, models):
     actionAim = []
     # 贪心选择动作
     for i, model in enumerate(models):
-        old_otherState.append(vehicles[i].otherState)
-        old_taskState.append(vehicles[i].taskState)
+        old_otherState.append(vehicles[i].self_state)
+        old_taskState.append(vehicles[i].task_state)
         if np.random.random() < epsilon:
             # 随机动作
             actionTask.append(np.random.randint(0, 10))
             actionAim.append(np.random.randint(0, 7))  # local+mec+neighbor
         else:
-            state_v = torch.tensor([vehicles[i].otherState], dtype=torch.float32)
-            taskState_v = torch.tensor([[vehicles[i].taskState]], dtype=torch.float32)
+            state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
+            taskState_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
             taskAction, aimAction = model(state_v, taskState_v)
 
             taskAction = np.array(taskAction, dtype=np.float32).reshape(-1)
@@ -134,17 +134,17 @@ if __name__ == '__main__':
     optimizers = []
     for agent in agents:
         # print(agent.get_location, agent.velocity)
-        task_shape = np.array([agent.taskState]).shape
+        task_shape = np.array([agent.task_state]).shape
         # print(task_shape)
-        model = DQN(len(agent.otherState), task_shape, MAX_TASK, len(agent.neighbor) + 2)
+        model = DQN(len(agent.self_state), task_shape, MAX_TASK, len(agent.neighbor) + 2)
         models.append(model)
         optimer = optim.RMSprop(params=model.parameters(), lr=LEARNING_RATE, momentum=momentum)
         optimizers.append(optimer)
     for agent in agents:
         # print(agent.get_location, agent.velocity)
-        task_shape = np.array([agent.taskState]).shape
+        task_shape = np.array([agent.task_state]).shape
         # print(task_shape)
-        model = DQN(len(agent.otherState), task_shape, MAX_TASK, len(agent.neighbor) + 2)
+        model = DQN(len(agent.self_state), task_shape, MAX_TASK, len(agent.neighbor) + 2)
         model.load_state_dict(models[agent.id].state_dict())
         tgt_models.append(model)
 

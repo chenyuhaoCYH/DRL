@@ -52,16 +52,16 @@ def play_step(env, epsilon, models, device="cpu"):
     actionResource = []
     # 贪心选择动作
     for i, model in enumerate(models):
-        old_otherState.append(vehicles[i].otherState)
-        old_taskState.append(vehicles[i].taskState)
+        old_otherState.append(vehicles[i].self_state)
+        old_taskState.append(vehicles[i].task_state)
         if np.random.random() < epsilon:
             # 随机动作
             actionTask.append(np.random.randint(0, 10))
             actionAim.append(np.random.randint(0, 7))  # local+mec+neighbor
             actionResource.append(round(np.random.random(), 1))
         else:
-            state_v = torch.tensor([vehicles[i].otherState], dtype=torch.float32)
-            taskState_v = torch.tensor([[vehicles[i].taskState]], dtype=torch.float32)
+            state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
+            taskState_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
             taskAction, aimAction, resourceAction = model(state_v, taskState_v)
 
             taskAction = np.array(taskAction, dtype=np.float32).reshape(-1)
@@ -142,24 +142,24 @@ if __name__ == '__main__':
     optimizers = []
     for agent in agents:
         # print(agent.get_location, agent.velocity)
-        task_shape = np.array([agent.taskState]).shape
+        task_shape = np.array([agent.task_state]).shape
         # print(task_shape)
-        model = DQN(len(agent.otherState), task_shape, MAX_TASK, len(agent.neighbor) + 2, len(RESOURCE))
+        model = DQN(len(agent.self_state), task_shape, MAX_TASK, len(agent.neighbor) + 2, len(RESOURCE))
         models.append(model)
         optimer = optim.RMSprop(params=model.parameters(), lr=LEARNING_RATE, momentum=momentum)
         optimizers.append(optimer)
     for agent in agents:
         # print(agent.get_location, agent.velocity)
-        task_shape = np.array([agent.taskState]).shape
+        task_shape = np.array([agent.task_state]).shape
         # print(task_shape)
-        model = DQN(len(agent.otherState), task_shape, MAX_TASK, len(agent.neighbor) + 2, len(RESOURCE))
+        model = DQN(len(agent.self_state), task_shape, MAX_TASK, len(agent.neighbor) + 2, len(RESOURCE))
         model.load_state_dict(models[agent.id].state_dict())
         tgt_models.append(model)
 
     # 打印网络结构
     model = models[0]
-    state_v = torch.tensor([env.vehicles[0].otherState], dtype=torch.float32)
-    taskState_v = torch.tensor([[env.vehicles[0].taskState]], dtype=torch.float32)
+    state_v = torch.tensor([env.vehicles[0].self_state], dtype=torch.float32)
+    taskState_v = torch.tensor([[env.vehicles[0].task_state]], dtype=torch.float32)
     # 针对有网络模型，但还没有训练保存 .pth 文件的情况
     modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
     torch.onnx.export(model, (state_v, taskState_v), modelpath)  # 导出并保存

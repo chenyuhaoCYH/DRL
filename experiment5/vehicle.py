@@ -2,14 +2,14 @@
 
 import numpy as np
 
-from memory import ExperienceBuffer
+from memory import ExperienceBuffer, PPOMemory
 from task import Task
 
 Dv = 100  # 车的最大通信范围
 Fv = 4000  # 车最大计算能力  MHZ
 MAX_TASK = 10  # 任务队列最大长度
 
-CAPACITY = 10000  # 缓冲池大小
+CAPACITY = 2050  # 缓冲池大小
 TASK_SOLT = 10  # 任务产生时隙
 
 # 等待队列最长长度
@@ -65,14 +65,14 @@ class Vehicle:
         # 任务队列的长度
         self.len_task = len(self.total_task)
 
-        # 当前状态信息
+        # 自身状态信息
         self.self_state = []
         # 当前任务队列状态
         self.task_state = []
-        # 去除邻居的状态信息用于邻居车观察和全局critic的处理
-        self.excludeNeighbor_state = []
+        # 邻居状态信息
+        self.neighbor_state = []
         # 缓冲池
-        self.buffer = ExperienceBuffer(capacity=CAPACITY)
+        self.memory = PPOMemory(CAPACITY)
         # 总奖励
         self.reward = []
         # 任务溢出的数量
@@ -113,7 +113,7 @@ class Vehicle:
             # # 每次有0.6的概率产生任务
             if np.random.random() < 0.6:
                 if self.len_task < MAX_TASK:  # 队列不满
-                    task = Task(self, self.cur_frame % 50)
+                    task = Task(self, self.cur_frame)
                     self.lastCreatWorkTime = self.cur_frame
                     self.total_task.append(task)
                     self.len_task += 1
@@ -129,54 +129,36 @@ class Vehicle:
 
     def get_state(self):
         self.self_state = []
-        self.excludeNeighbor_state = []
+        self.neighbor_state = []
         self.task_state = []
 
         # 位置信息  4
         self.self_state.extend(self.position)
         self.self_state.append(self.velocity)
         self.self_state.append(direction_map.get(self.direction))
-        self.excludeNeighbor_state.extend(self.position)
-        self.excludeNeighbor_state.append(self.velocity)
-        self.excludeNeighbor_state.append(direction_map.get(self.direction))
 
         # 资源信息（可用资源）
         self.self_state.append(self.resources)
-        self.excludeNeighbor_state.append(self.resources)
 
         # 当前处理的任务量
         self.self_state.append(self.sum_needDeal_task)
-        self.excludeNeighbor_state.append(self.sum_needDeal_task)
         # 当前接受传输的任务量
         self.self_state.append(self.len_action)
-        self.excludeNeighbor_state.append(self.sum_needDeal_task)
 
         # 当前是否有任务在传输
-        self.excludeNeighbor_state.append(self.trans_task_for_vehicle)
-        self.excludeNeighbor_state.append(self.trans_task_for_mec)
         self.self_state.append(self.trans_task_for_vehicle)
         self.self_state.append(self.trans_task_for_mec)
 
-        # 正在传输的任务信息
-        # if self.trans_task is not None:
-        #     self.otherState.append(self.trans_task.need_trans_size)
-        #     self.excludeNeighbor_state.append(self.trans_task.need_trans_size)
-        # else:
-        #     self.otherState.append(0)
-        #     self.excludeNeighbor_state.append(0)
-
-        # 当前队列长度
-        self.self_state.append(self.len_task)
-        self.excludeNeighbor_state.append(self.len_task)
-
         # 邻居表  7*数量
         for neighbor in self.neighbor:
-            self.self_state.extend(neighbor.position)  # 位置
-            self.self_state.append(neighbor.velocity)  # 速度
-            self.self_state.append(direction_map.get(neighbor.direction))  # 方向
-            self.self_state.append(neighbor.resources)  # 可用资源
-            self.self_state.append(neighbor.sum_needDeal_task)  # 处理任务长度
-            self.self_state.append(neighbor.len_action)  # 当前正在传输任务数量
+            state = []
+            state.extend(neighbor.position)  # 位置
+            state.append(neighbor.velocity)  # 速度
+            state.append(direction_map.get(neighbor.direction))  # 方向
+            state.append(neighbor.resources)  # 可用资源
+            state.append(neighbor.sum_needDeal_task)  # 处理任务长度
+            state.append(neighbor.len_action)  # 当前正在接受传输任务数量
+            self.neighbor_state.append(state)
 
         self.self_state.extend(self.Mec.state)
 
@@ -188,4 +170,4 @@ class Vehicle:
             else:
                 self.task_state.append([0, 0, 0, 0])
 
-        return self.excludeNeighbor_state
+        return self.self_state

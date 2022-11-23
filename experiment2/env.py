@@ -161,9 +161,9 @@ class Env:
             # 全局状态
             self.otherState.extend(vehicle.get_state())
             # 描述车的状态
-            self.vehicles_state.append(vehicle.otherState)
+            self.vehicles_state.append(vehicle.self_state)
             # 全局任务状态
-            self.taskState.append(vehicle.taskState)
+            self.taskState.append(vehicle.task_state)
 
         self.otherState.extend(self.MEC.state)
 
@@ -612,8 +612,8 @@ class Env:
             vehicle.create_work()
             # 更新资源已经接受的任务信息
             self.otherState.extend(vehicle.get_state())
-            self.taskState.append(vehicle.taskState)
-            self.vehicles_state.append(vehicle.otherState)
+            self.taskState.append(vehicle.task_state)
+            self.vehicles_state.append(vehicle.self_state)
             # 更新任务信息
             vehicle.cur_task = None
 

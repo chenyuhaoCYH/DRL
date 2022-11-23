@@ -1,8 +1,16 @@
+"""
+环境5
+（两个动作：选择任务和选择对象）
+加入了mec和车在时隙内处理任务的上限（mec最多同时处理10个任务、车最多处理5个任务）
+使用经典城市道路（使用不同数量车辆和邻居）
+为mec卸载和车辆卸载提供两种传输方式（即可同时像车辆和mec传输任务）
+使用MAPPO训练网络
+"""
 import ptan
 import numpy as np
 import torch
 from torch.distributions.categorical import Categorical
-from experiment.env import Env
+from env import Env
 
 
 def test_net(nets, env: Env, count=10):

@@ -46,7 +46,7 @@ if __name__ == '__main__':
     # list=[[]]*5
     # print(list)
     for vehicle in vehicles:
-        print("第{}车状态：{}".format(vehicle.id, vehicle.otherState))
+        print("第{}车状态：{}".format(vehicle.id, vehicle.self_state))
         print("该车邻居:")
         for i in vehicle.neighbor:
             print(i.id, end="  ")

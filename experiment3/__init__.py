@@ -20,7 +20,7 @@ def test_net(nets, env: Env, count=10):
             action = []
             with torch.no_grad():
                 for vehicle in env.vehicles:
-                    state = torch.tensor(vehicle.otherState)
+                    state = torch.tensor(vehicle.self_state)
                     _, pro = nets[vehicle.id](state)
                     act = Categorical.sample(pro)
                     action.append(act.item())
