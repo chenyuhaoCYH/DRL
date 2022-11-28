@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-RANGE_MEC = 500  # MEC通信范围 /m
+RANGE_MEC = 650  # MEC通信范围 /m
 RESOURCE = 10000  # 可用资源  MHz
 MAX_QUEUE = 10
 

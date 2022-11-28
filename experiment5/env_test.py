@@ -58,10 +58,35 @@ import matplotlib.pyplot as plt
 #     plt.show()
 
 if __name__ == '__main__':
+    print()
     env = Env()
     env.reset()
+
+    # 测试网络节点数
     vehicles = env.vehicles
 
-    print("self_state", vehicles[0].self_state)
-    print("neighbor_state", vehicles[0].neighbor_state)
-    print("task_state", vehicles[0].task_state)
+    for vehicle in vehicles:
+        print("第{}车状态：{}".format(vehicle.id, vehicle.self_state))
+        print("该车邻居:")
+        for i in vehicle.neighbor:
+            print(i.id, end="  ")
+        print()
+
+    # 测试环境运行
+    reward = []
+    x = [[] for i in range(20)]
+    y = [[] for i in range(20)]
+    for i in range(1000):
+        # for j in range(20):
+        #     x[j].append(env.vehicles[j].position[0])
+        #     y[j].append(env.vehicles[j].position[1])
+        action1 = []
+        action2 = []
+        for j in range(20):
+            # action1.append(np.random.randint(0, 10))
+            action1.append(0)
+            # action2.append(np.random.randint(0, 7))
+            action2.append(1)
+        Reward, _ = env.step(action1, action2)
+        reward.append(Reward)
+        print("第{}次平均奖励{}".format(i, Reward))
