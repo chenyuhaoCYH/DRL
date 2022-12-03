@@ -1,6 +1,5 @@
 import copy
 
-import ptan
 import numpy as np
 import torch
 import torch.nn as nn
@@ -67,7 +66,7 @@ class ModelActor(nn.Module):
             nn.Linear(HID_SIZE_MIN, act_aim_dim),
         )
 
-    def forward(self, obs, neighbor, task):
+    def forward(self, obs, neighbor, task, train=True):
         task_out = self.cnn_task(task)
         neighbor_out = self.cnn_neighbor(neighbor)
         x = torch.cat((task_out, neighbor_out, obs), -1)
@@ -75,13 +74,24 @@ class ModelActor(nn.Module):
         act_out = self.act(same_out)
         task_out = self.task(same_out)
 
-        act_pro = F.softmax(act_out, dim=-1)
-        task_pro = F.softmax(task_out, dim=-1)
+        # 训练完成之后无需添加噪音
+        if train:
+            # act_out += torch.tensor(np.random.normal(size=act_out.shape))
+            # task_out += torch.tensor(np.random.normal(size=task_out.shape))
+            act_out = F.gumbel_softmax(act_out, hard=True)
+            task_out = F.gumbel_softmax(task_out, hard=True)
+        # else:
+        #     task_out = F.softmax(task_out, dim=-1)
+        #     act_out = F.softmax(act_out, dim=-1)
+
+        # act_pro = F.softmax(act_out, dim=-1)
+        # task_pro = F.softmax(task_out, dim=-1)
         # print(act_pro)
         # print(torch.sum(act_pro))
         # print(task_pro)
         # return act_pro, task_pro  # 打印网络结构用
-        return Categorical(task_pro), Categorical(act_pro)  # 真实使用
+        # return Categorical(task_pro), Categorical(act_pro)  # 真实使用
+        return task_out, act_out
 
 
 class ModelCritic(nn.Module):

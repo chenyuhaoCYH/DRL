@@ -27,7 +27,7 @@ class PPOMemory:
     def sample(self):
         batch_step = np.arange(0, len(self.self_state), self.batch_size)
         indices = np.arange(len(self.self_state), dtype=np.int64)
-        np.random.shuffle(indices)
+        # np.random.shuffle(indices)
         batches = [indices[i:i + self.batch_size] for i in batch_step]
         return np.array(self.self_state), \
                np.array(self.neighbor_state), \

@@ -2,11 +2,11 @@
 
 import numpy as np
 
-from memory import ExperienceBuffer, PPOMemory
+from memory import PPOMemory
 from task import Task
 
 Dv = 100  # 车的最大通信范围
-Fv = 4000  # 车最大计算能力  MHZ
+Fv = 2000  # 车最大计算能力  MHZ
 MAX_TASK = 10  # 任务队列最大长度
 
 CAPACITY = 2050  # 缓冲池大小

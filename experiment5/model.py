@@ -37,14 +37,23 @@ class ModelActor(nn.Module):
             nn.ReLU(),
             nn.Linear(HID_SIZE_MIN, act_aim_dim),
         )
+        self.logstd_task = nn.Parameter(torch.zeros(task_aim_dim))
+        self.logstd_aim = nn.Parameter(torch.zeros(act_aim_dim))
 
-    def forward(self, obs, neighbor, task):
+    def forward(self, obs, neighbor, task, is_train=True):
         task_out = self.cnn_task(task)
         neighbor_out = self.cnn_neighbor(neighbor)
         x = torch.cat((task_out, neighbor_out, obs), -1)
         same_out = self.same(x)
         act_out = self.act(same_out)
         task_out = self.task(same_out)
+        if is_train:
+            rnd_task = torch.tensor(np.random.normal(size=task_out.shape))
+            rnd_aim = torch.tensor(np.random.normal(size=act_out.shape))
+            task_out = task_out + torch.exp(self.logstd_task) * rnd_task
+            act_out = act_out + torch.exp(self.logstd_aim) * rnd_aim
+
+        act_out = F.gumbel_softmax(act_out)
 
         act_pro = F.softmax(act_out, dim=-1)
         task_pro = F.softmax(task_out, dim=-1)

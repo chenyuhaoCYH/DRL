@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import time
 from collections import namedtuple
 
@@ -14,6 +13,9 @@ import netron
 import model
 
 from env import Env
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 np.random.seed(2)
 
@@ -28,17 +30,22 @@ Experience = namedtuple('Transition',
                                      'next_all_vehicle_state'])  # Define a transition tuple
 
 REPLAY_SIZE = 100000
-LEARNING_RATE = 1e-4
+LEARNING_RATE_Actor = 1e-5
+LEARNING_RATE_Critic = 1e-4
 GAMMA = 0.9
-BATCH_SIZE = 4
+BATCH_SIZE = 64
 REPLAY_INITIAL = 10000
 TARGET_STEPS = 10
 
-EPSILON = 100000
+EPSILON = 400000
+
+EPSILON_DECAY_LAST_FRAME = 150000
+EPSILON_START = 0.6
+EPSILON_FINAL = 0.01
 
 
 @torch.no_grad()
-def play_step(env, models):
+def play_step(env, models, epsilon):
     vehicles = env.vehicles
     old_self_state = []
     old_neighbor_state = []
@@ -51,17 +58,25 @@ def play_step(env, models):
         old_self_state.append(vehicles[i].self_state)
         old_neighbor_state.append(vehicles[i].neighbor_state)
         old_task_state.append(vehicles[i].task_state)
+        if np.random.random() < epsilon:
+            task_action = np.random.randint(0, 5)
+            aim_action = np.random.randint(0, 7)
+        else:
+            self_state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
+            neighbor_state_v = torch.tensor([[vehicles[i].neighbor_state]], dtype=torch.float32)
+            task_state_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
+            task_action, aim_action = model(self_state_v, neighbor_state_v, task_state_v)
 
-        self_state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
-        neighbor_state_v = torch.tensor([[vehicles[i].neighbor_state]], dtype=torch.float32)
-        task_state_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
-        task_dist, aim_dist = model(self_state_v, neighbor_state_v, task_state_v)
-        # 采样动作
-        task_action = torch.squeeze(task_dist.sample()).item()
-        aim_action = torch.squeeze(aim_dist.sample()).item()
+            task_action = torch.argmax(task_action, dim=1)
+            task_action = np.argmax(np.array(task_action, dtype=np.float32).reshape(-1))
+            aim_action = np.argmax(np.array(aim_action, dtype=np.float32).reshape(-1))
+            # 采样动作
+            # task_action = torch.squeeze(task_dist.sample()).item()
+            # aim_action = torch.squeeze(aim_dist.sample()).item()
+            # task_action, aim_action = get_action(task_dist, aim_dist, False)
 
-        actionAim.append(aim_action)
         actionTask.append(task_action)
+        actionAim.append(aim_action)
     Reward, reward = env.step(actionTask, actionAim)
 
     # 加入各自的缓存池【当前其他状态、当前任务状态、目标动作、任务动作，下一其他状态、下一任务状态】
@@ -117,11 +132,11 @@ if __name__ == '__main__':
     for vehicle in vehicles:
         actor_model = model.ModelActor(vehicle_shape, neighbor_shape, task_shape, TASK_DIM, AIM_DIM)
         target_actor_model = model.TargetNet(actor_model)
-        actor_optimizer = optim.Adam(actor_model.parameters(), LEARNING_RATE)
+        actor_optimizer = optim.Adam(actor_model.parameters(), LEARNING_RATE_Actor)
 
         critic_model = model.ModelCritic(all_vehicles_shape, task_shape, 1, 1)
         target_critic_model = model.TargetNet(critic_model)
-        critic_optimizer = optim.Adam(critic_model.parameters(), LEARNING_RATE)
+        critic_optimizer = optim.Adam(critic_model.parameters(), LEARNING_RATE_Critic)
 
         actor_models.append(actor_model)
         actor_target_models.append(target_actor_model)
@@ -139,7 +154,8 @@ if __name__ == '__main__':
         time_solt += 1
         print("the {} step".format(time_solt))
         # 执行一步
-        reward = play_step(env, actor_models)
+        eps = max(EPSILON_FINAL, EPSILON_START - time_solt / EPSILON_DECAY_LAST_FRAME)
+        reward = play_step(env, actor_models, eps)
         total_reward.append(reward)
         print("current reward:", reward)
         print("current 100 times total rewards:", np.mean(total_reward[-100:]))
@@ -160,13 +176,15 @@ if __name__ == '__main__':
             critic_optimizers[i].zero_grad()
             # 计算q
             task_q_v, aim_q_v = critic_models[i](all_vehicle_state_v, task_state_v, task_action_v, aim_action_v)
-            next_task_a_dist, next_aim_a_v_dist = actor_target_models[i].target_model(next_vehicle_state_v,
-                                                                                      next_neighbor_state_v,
-                                                                                      next_task_state_v)
-            next_task_action = next_task_a_dist.sample()
-            next_task_action = next_task_action.unsqueeze(1)
-            next_aim_action = next_aim_a_v_dist.sample()
-            next_aim_action = next_aim_action.unsqueeze(1)
+            next_task_action, next_aim_action = actor_target_models[i].target_model(next_vehicle_state_v,
+                                                                                    next_neighbor_state_v,
+                                                                                    next_task_state_v)
+            # next_task_action = next_task_a_dist.sample()
+            # next_task_action = next_task_action.unsqueeze(1)
+            # next_aim_action = next_aim_a_v_dist.sample()
+            # next_aim_action = next_aim_action.unsqueeze(1)
+            next_task_action = torch.argmax(next_task_action, dim=1).unsqueeze(1)
+            next_aim_action = torch.argmax(next_aim_action, dim=1).unsqueeze(1)
             # 计算q‘
             next_task_q_v, next_aim_q_v = critic_target_models[i].target_model(next_all_vehicle_state_v,
                                                                                next_task_state_v, next_task_action,
@@ -181,8 +199,8 @@ if __name__ == '__main__':
             # train actor
             actor_models[i].zero_grad()
             cur_task_action_v, cur_aim_action_v = actor_models[i](vehicle_state_v, neighbor_state_v, task_state_v)
-            task_action = cur_task_action_v.sample().unsqueeze(1)
-            aim_action = cur_aim_action_v.sample().unsqueeze(1)
+            task_action = torch.argmax(cur_task_action_v, dim=1).unsqueeze(1)
+            aim_action = torch.argmax(cur_aim_action_v, dim=1).unsqueeze(1)
             actor_task_loss, actor_aim_loss = critic_models[i](all_vehicle_state_v, task_state_v, task_action,
                                                                aim_action)
             actor_task_loss = -actor_task_loss.mean()
