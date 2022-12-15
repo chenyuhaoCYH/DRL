@@ -207,7 +207,7 @@ if __name__ == '__main__':
                 reward_1.append(env.reward[1])
         eliposde -= 1
 
-    cur_time = time.strftime("%Y-%m-%d-%H-%M", time.localtime(time.time()))
+    cur_time = time.strftime("%Y-%m-%d", time.localtime(time.time()))
     # 创建文件夹
     os.makedirs("D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time)
     for i, vehicle in enumerate(env.vehicles):

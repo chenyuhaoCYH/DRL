@@ -149,13 +149,13 @@ if __name__ == '__main__':
         tgt_models.append(model)
 
     # 打印网络结构
-    # model = models[0]
-    # state_v = torch.tensor([env.vehicles[0].otherState], dtype=torch.float32)
-    # taskState_v = torch.tensor([[env.vehicles[0].taskState]], dtype=torch.float32)
-    # # 针对有网络模型，但还没有训练保存 .pth 文件的情况
-    # modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
-    # torch.onnx.export(model, (state_v, taskState_v), modelpath)  # 导出并保存
-    # netron.start(modelpath)
+    model = models[0]
+    state_v = torch.tensor([env.vehicles[0].otherState], dtype=torch.float32)
+    taskState_v = torch.tensor([[env.vehicles[0].taskState]], dtype=torch.float32)
+    # 针对有网络模型，但还没有训练保存 .pth 文件的情况
+    modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
+    torch.onnx.export(model, (state_v, taskState_v), modelpath)  # 导出并保存
+    netron.start(modelpath)
 
     total_reward = []
     recent_reward = []

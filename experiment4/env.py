@@ -40,6 +40,8 @@ np.random.seed(2)
 
 class Env:
     def __init__(self, num_Vehicles=N):
+        self.avg = [[] for _ in range(N)]
+        self.avg_energy = [[] for _ in range(N)]
         # ################## SETTINGS ######################
         # 参数初始化：这部分直接写在代码中，没有函数，大概包括：地图属性（路口坐标，整体地图尺寸）、#车、#邻居、#RB、#episode，一些算法参数
         # 对于地图参数 up_lanes / down_lanes / left_lanes / right_lanes 的含义，首先要了解本次所用的系统模型由3GPP TR 36.885的城市案例
@@ -369,7 +371,7 @@ class Env:
                 # 重新排序
                 cur_need_time.sort()
 
-    def get_reward(self, task):
+    def get_reward(self, task, avg_time):
         """
         计算此时任务的奖励
         """
@@ -392,6 +394,7 @@ class Env:
         compute_time = task.need_time
         # 总时间=出队列时间-创建时间+传输时间+队列持有时间+处理时间
         sum_time = trans_time + compute_time + np.abs(task.pick_time - task.create_time) + task.hold_time
+        avg_time[vehicle.id].append(sum_time)
 
         print("pick_time", task.pick_time)
         print("create_time", task.create_time)
@@ -413,7 +416,7 @@ class Env:
             # 计算任务消耗的能量（本地卸载）
             energy = round(gama * np.power(task.compute_resource, 3) * compute_time, 2)
             # print("本地计算消耗{} J".format(energy))
-
+        self.avg_energy[vehicle.id].append(energy)
         print("总时长sum_time: ", sum_time)
         print("energy:", energy)
         reward += 2 - T3 * (a * sum_time + b * energy)
@@ -437,7 +440,7 @@ class Env:
         """
         for i, vehicle in enumerate(self.vehicles):
             if vehicle.cur_task is not None:
-                self.reward[i] = self.get_reward(vehicle.cur_task)
+                self.reward[i] = self.get_reward(vehicle.cur_task, self.avg)
                 vehicle.cur_task = None
         self.Reward = np.mean(self.reward)
 

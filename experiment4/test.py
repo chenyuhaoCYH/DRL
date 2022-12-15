@@ -24,7 +24,7 @@ if __name__ == '__main__':
     for i in range(N):
         tgt_model = model.DQN(len(vehicles[0].self_state), task_shape, 10, len(vehicles[0].neighbor) + 2)
         tgt_model.load_state_dict(torch.load(
-            "D:\pycharm\Project\VML\MyErion\experiment4\\result\\2022-11-16-08-07\\vehicle{}.pkl".format(i)))
+            "D:\pycharm\Project\VML\MyErion\experiment4\\result\\2022-11-26\\vehicle{}.pkl".format(i)))
         models.append(tgt_model)
 
     # state_v = torch.tensor([vehicles[i].otherState], dtype=torch.float32)
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     vehicleReward = []
     averageReward = []
-    for step in range(10000):
+    for step in range(1000):
         action1 = []
         action2 = []
 
@@ -60,4 +60,16 @@ if __name__ == '__main__':
     fig, aix = plt.subplots(2, 1)
     aix[0].plot(range(len(vehicleReward)), vehicleReward)
     aix[1].plot(range(len(averageReward)), averageReward)
+    plt.show()
+
+    avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 3 != 0]
+    plt.bar(range(len(avg)), avg)
+    plt.title("平均时延")
+    plt.ylabel("时延/ms")
+    plt.show()
+
+    avg = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 3 != 0]
+    plt.bar(range(len(avg)), avg)
+    plt.title("平均能量消耗")
+    plt.ylabel("能量/J")
     plt.show()
