@@ -67,7 +67,7 @@ def play_step(env, models, epsilon):
             task_state_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
             task_action, aim_action = model(self_state_v, neighbor_state_v, task_state_v)
 
-            task_action = torch.argmax(task_action, dim=1)
+            # task_action = torch.argmax(task_action, dim=1)
             task_action = np.argmax(np.array(task_action, dtype=np.float32).reshape(-1))
             aim_action = np.argmax(np.array(aim_action, dtype=np.float32).reshape(-1))
             # 采样动作
@@ -197,7 +197,7 @@ if __name__ == '__main__':
             critic_optimizers[i].step()
 
             # train actor
-            actor_models[i].zero_grad()
+            actor_optimizers[i].zero_grad()
             cur_task_action_v, cur_aim_action_v = actor_models[i](vehicle_state_v, neighbor_state_v, task_state_v)
             task_action = torch.argmax(cur_task_action_v, dim=1).unsqueeze(1)
             aim_action = torch.argmax(cur_aim_action_v, dim=1).unsqueeze(1)

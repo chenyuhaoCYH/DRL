@@ -11,7 +11,7 @@ from vehicle import Vehicle
 
 MAX_TASK = 5  # 只能选前五个任务
 
-N = 20  # 车的数量
+N = 40  # 车的数量
 MAX_NEIGHBOR = 5  # 最大邻居数
 CAPACITY = 20000  # 缓冲池大小
 

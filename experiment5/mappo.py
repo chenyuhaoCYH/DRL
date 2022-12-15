@@ -129,6 +129,9 @@ def update(memory: PPOMemory, actor_network, actor_opt, critic_network, critic_o
             old_aim_probs_v = torch.tensor(old_aim_probs_arr[batch], dtype=torch.float32).to(device)
             actions_v = torch.tensor(actions_arr[batch], dtype=torch.float32).to(device)
 
+            actor_opt.zero_grad()
+            critic_opt.zero_grad()
+
             # 获取值(新网络)
             task_dist, aim_dist = actor_network(self_state_v, neighbor_state_v, task_state_v)
             q_value = critic_network(vehicles_states_v, task_state_v, actions_v)

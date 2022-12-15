@@ -46,8 +46,8 @@ if __name__ == '__main__':
             # aimAction = np.array(aimAction, dtype=np.float32).reshape(-1)
             taskAction = taskAction.detach().numpy().reshape(-1)
             aimAction = aimAction.detach().numpy().reshape(-1)
-            # action1.append(np.argmax(taskAction))
-            action1.append(0)
+            action1.append(np.argmax(taskAction))
+            # action1.append(0)
             action2.append(np.argmax(aimAction))
 
         print(action1)
