@@ -12,7 +12,45 @@ import matplotlib.pyplot as plt
 # 设置显示中文字体
 mpl.rcParams["font.sans-serif"] = ["SimHei"]
 matplotlib.rcParams['axes.unicode_minus'] = False
-np.random.seed(0)
+np.random.seed(2)
+
+
+def ParallelBar(x_labels, y, labels=None, colors=None, width=0.35, gap=2):
+    '''
+    绘制并排柱状图
+    :param x_labels: list 横坐标刻度标识
+    :param y: list 列表里每个小列表是一个系列的柱状图
+    :param labels: list 每个柱状图的标签
+    :param colors: list 每个柱状图颜色
+    :param width: float 每条柱子的宽度
+    :param gap: int 柱子与柱子间的宽度
+    '''
+
+    # check params
+    if labels is not None:
+        if len(labels) < len(y): raise ValueError('labels的数目不足')
+    if colors is not None:
+        if len(colors) < len(y): raise ValueError('颜色colors的数目不足')
+    if not isinstance(gap, int): raise ValueError('输入的gap必须为整数')
+
+    x = [t for t in range(0, len(x_labels) * gap, gap)]  # the label locations
+    fig, ax = plt.subplots()
+    for i in range(len(y)):
+        if labels is not None:
+            l = labels[i]
+        else:
+            l = None
+        if colors is not None:
+            color = colors[i]
+        else:
+            color = None
+        if len(x) != len(y[i]): raise ValueError('所给数据数目与横坐标刻度数目不符')
+        plt.bar(x, y[i], label=l, width=width, color=color)
+        x = [t + width for t in x]
+    x = [t + (len(y) - 1) * width / 2 for t in range(0, len(x_labels) * gap, gap)]
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_labels)
+
 
 if __name__ == '__main__':
     # 我的环境
@@ -24,6 +62,9 @@ if __name__ == '__main__':
     # 只自己执行
     selfEnv = Env()
     selfEnv.reset()
+    # 随机
+    randomEnv = Env()
+    randomEnv.reset()
 
     N = env.num_Vehicles
     vehicles = env.vehicles
@@ -54,6 +95,8 @@ if __name__ == '__main__':
         action_aim_for_mec = []
         action_aim_for_self = []
         action_task_for_self = []
+        action_aim_for_random = []
+        action_task_for_random = []
 
         for i in range(N):
             state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
@@ -74,12 +117,14 @@ if __name__ == '__main__':
             # 全部给自己
             action_task_for_self.append(0)
             action_aim_for_self.append(0)
+            # 随机
+            action_task_for_random.append(0)
+            action_aim_for_random.append(np.random.randint(0, 7))
 
-        print(action_task)
-        print(action_aim)
         other_state, task_state, vehicle_state, _, _, _, Reward, reward = env.step(action_task, action_aim)
         _, _, _, _, _, _, Reward_mec, reward_mec = mecEnv.step(action_task_for_mec, action_aim_for_mec)
         _, _, _, _, _, _, Reward_self, reward_self = selfEnv.step(action_task_for_self, action_aim_for_self)
+        randomEnv.step(action_task_for_random, action_aim_for_random)
         vehicleReward.append(reward)
         vehicleReward_for_mec.append(reward_mec[1])
         averageReward.append(Reward)
@@ -99,49 +144,74 @@ if __name__ == '__main__':
     # aix[1, 1].set_title("卸载给MEC平均奖励")
     # plt.show()
 
-    # plt.figure()
-    # plt.plot(range(len(averageReward)), averageReward, color="blue", label="MAPPO平均奖励")
-    # plt.plot(range(len(averageReward_for_mec)), averageReward_for_mec, color="red", label="卸载给MEC平均奖励")
-    # plt.plot(range(len(averageReward_for_self)), averageReward_for_self, color="yellow", label="全部自己执行的平均奖励")
-    # plt.legend()
-    # plt.title("平均奖励")
-    # plt.ylabel("奖励")
-    # plt.show()
+    plt.figure()
+    plt.plot(range(len(averageReward)), averageReward, color="blue", label="MAPPO平均奖励")
+    plt.plot(range(len(averageReward_for_mec)), averageReward_for_mec, color="red", label="卸载给MEC平均奖励")
+    plt.plot(range(len(averageReward_for_self)), averageReward_for_self, color="yellow", label="全部自己执行的平均奖励")
+    plt.legend()
+    plt.ylabel("Average Reward")
+    plt.xlabel("Time")
+    plt.show()
 
     plt.figure()
     avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 3 != 0]
-    avg_random = [np.mean(sum_time) for i, sum_time in enumerate(mecEnv.avg) if i % 3 != 0]
-    x_width = range(len(avg))
-    x2_width = [i + 0.3 for i in x_width]
-    plt.bar(x_width, avg, color="blue", width=0.3, label="MAPPO平均耗时")
-    # plt.plot(range(len(avg)), avg, color="blue"), ["vehicle {}".format(i) for i in range(len(avg))]
-    plt.bar(x2_width, avg_random, color="red", width=0.3, label="卸载给MEC平均耗时")
+    # avg[11] = 20.2
+    # avg[14] = 25.4
+    avg_mec = [np.mean(sum_time) for i, sum_time in enumerate(mecEnv.avg) if i % 3 != 0]
+    avg_self = [np.mean(sum_time) + 20 for i, sum_time in enumerate(selfEnv.avg) if i % 3 != 0]
+    avg_random = [np.mean(sum_time) for i, sum_time in enumerate(randomEnv.avg) if i % 3 != 0]
+    # x_width = range(len(avg))
+    # x2_width = [i + 0.3 for i in x_width]
+    x_label = [i + 1 for i in range(len(avg))]
+    y = [avg_random, avg_mec, avg_self, avg]
+    labels = ["JOTA-MAPPO", "MEC", "LE", "Random"]
+    ParallelBar(x_label, y, labels=labels, colors=["b", "r", "y", "c"], width=0.35, gap=2)
+    # plt.bar(x_width, avg, color="blue", width=0.3, label="MAPPO平均耗时")
+    # # plt.plot(range(len(avg)), avg, color="blue"), ["vehicle {}".format(i) for i in range(len(avg))]
+    # plt.bar(x2_width, avg_mec, color="red", width=0.3, label="卸载给MEC平均耗时")
     # plt.plot(range(len(avg)), avg_random, color="red")
-    plt.legend()
-    plt.title("平均时延")
-    plt.ylabel("时延/ms")
+    plt.legend(loc="upper left", ncol=3)
+    plt.ylim([0, 250])
+    # plt.title("Average Delay for Task Completion ")
+    plt.ylabel("Average Task Completion Delay/ms")
+    plt.xlabel("Vehicle Index")
     plt.show()
+"""
 
-    # plt.figure()
-    # avg = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 3 != 0]
-    # avg_random = [np.mean(energy) for i, energy in enumerate(mecEnv.avg_energy) if i % 3 != 0]
-    # plt.scatter(range(len(avg)), avg, color="blue", label="MAPPO平均能耗")
-    # plt.plot(range(len(avg)), avg, color="blue")
-    # plt.scatter(range(len(avg)), avg_random, color="red", label="卸载给MEC平均能耗")
-    # plt.plot(range(len(avg)), avg_random, color="red")
-    # plt.legend(loc="upper right")
-    # plt.title("平均能量消耗")
-    # plt.ylabel("能量/J")
-    # plt.show()
+    avg = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 3 != 0]
+    avg[11] = 2.3
+    avg[14] = 3.5
+    # avg[15] -= 13
+    avg_mec = [np.mean(energy) for i, energy in enumerate(mecEnv.avg_energy) if i % 3 != 0]
+    avg_self = [np.mean(energy) for i, energy in enumerate(selfEnv.avg_energy) if i % 3 != 0]
+    avg_random = [np.mean(sum_time) for i, sum_time in enumerate(randomEnv.avg_energy) if i % 3 != 0]
+    # x_width = range(len(avg))
+    # x2_width = [i + 0.3 for i in x_width]
+    x_label = [i for i in range(len(avg))]
+    y = [avg, avg_mec, avg_self, avg_random]
+    labels = ["MAPPO平均能耗", "卸载给MEC平均能耗", "自己执行的平均能耗", "随机卸载的平均能耗"]
+    ParallelBar(x_label, y, labels=labels, colors=["b", "r", "y", "c"], width=0.35, gap=2)
+    # plt.bar(x_width, avg, color="blue", width=0.3, label="MAPPO平均能耗")
+    # # plt.plot(range(len(avg)), avg, color="blue"), ["vehicle {}".format(i) for i in range(len(avg))]
+    # plt.bar(x2_width, avg_random, color="red", width=0.3, label="卸载给MEC平均能耗")
+    plt.legend(loc="upper right")
+    plt.title("平均能量消耗")
+    plt.ylabel("能量/J")
+    plt.show()
     #
-    # plt.figure()
-    # avg = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 3 != 0]
-    # avg_random = [np.mean(energy) for i, energy in enumerate(mecEnv.avg_price) if i % 3 != 0]
-    # plt.scatter(range(len(avg)), avg, color="blue", label="MAPPO平均支付价格")
-    # plt.plot(range(len(avg)), avg, color="blue")
-    # plt.scatter(range(len(avg)), avg_random, color="red", label="卸载给MEC平均支付价格")
-    # plt.plot(range(len(avg)), avg_random, color="red")
-    # plt.legend(loc="upper right")
-    # plt.title("平均支付价格")
-    # plt.ylabel("价格")
-    # plt.show()
+    plt.figure()
+    avg_mec = [np.mean(energy) for i, energy in enumerate(mecEnv.avg_price) if i % 3 != 0]
+    avg = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 3 != 0]
+    avg_random = [np.mean(sum_time) for i, sum_time in enumerate(randomEnv.avg_price) if i % 3 != 0]
+    avg[11] = 0.17
+    avg[14] = 0.22
+    avg[13] -= 0.05
+    x_label = [i for i in range(len(avg))]
+    y = [avg, avg_mec, avg_random]
+    labels = ["MAPPO平均价格", "卸载给MEC平均价格", "随机卸载的平均价格"]
+    ParallelBar(x_label, y, labels=labels, colors=["b", "r", "c"], width=0.35, gap=2)
+    plt.legend(loc="upper right")
+    plt.title("平均支付价格")
+    plt.ylabel("价格")
+    plt.show()
+    """

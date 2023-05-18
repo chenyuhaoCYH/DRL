@@ -209,14 +209,15 @@ if __name__ == '__main__':
 
     cur_time = time.strftime("%Y-%m-%d", time.localtime(time.time()))
     # 创建文件夹
-    os.makedirs("D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time)
+    os.makedirs("D:/pycharm/Project/VML/MyErion/experiment7/result/" + cur_time)
     for i, vehicle in enumerate(env.vehicles):
         # 保存每个网络模型
         torch.save(tgt_models[i].state_dict(),
-                   "D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time + "/vehicle" + str(i) + ".pkl")
+                   "D:/pycharm/Project/VML/MyErion/experiment7/result/" + cur_time + "/vehicle" + str(i) + ".pkl")
 
     plt.plot(range(len(recent_reward)), recent_reward)
-    plt.title("奖励曲线")
+    plt.ylabel("Average Reward")
+    plt.xlabel("Episode")
     plt.show()
 
     # plt.plot(range(len(loss_task_list)), loss_task_list)
