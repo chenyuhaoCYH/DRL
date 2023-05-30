@@ -8,6 +8,61 @@ Experience = namedtuple('Transition',
                         field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
 
 
+class PPOMemory:
+    def __init__(self, batch_size):
+        self.self_state = []
+        self.neighbor_state = []
+        self.task_state = []
+        self.vehicles_state = []
+        self.task_probs = []
+        self.aim_probs = []
+        self.vals = []
+        self.action = []
+        self.rewards = []
+        self.batch_size = batch_size
+
+    def sample(self):
+        batch_step = np.arange(0, len(self.self_state), self.batch_size)
+        indices = np.arange(len(self.self_state), dtype=np.int64)
+        # np.random.shuffle(indices)
+        batches = [indices[i:i + self.batch_size] for i in batch_step]
+        return np.array(self.self_state), \
+               np.array(self.neighbor_state), \
+               np.array(self.task_state), \
+               np.array(self.vehicles_state), \
+               np.array(self.task_probs), \
+               np.array(self.aim_probs), \
+               np.array(self.vals), \
+               np.array(self.action), \
+               np.array(self.rewards), \
+               batches
+
+    def push(self, self_state, neighbor_state, task_state, vehicles_state,
+             task_action, aim_action,
+             task_probs, aim_probs,
+             vals, reward):
+        self.self_state.append(self_state)
+        self.neighbor_state.append(neighbor_state)
+        self.task_state.append(task_state)
+        self.vehicles_state.append(vehicles_state)
+        self.action.append([task_action, aim_action])
+        self.task_probs.append(task_probs)
+        self.aim_probs.append(aim_probs)
+        self.vals.append(vals)
+        self.rewards.append(reward)
+
+    def clear(self):
+        self.self_state = []
+        self.neighbor_state = []
+        self.task_state = []
+        self.vehicles_state = []
+        self.task_probs = []
+        self.aim_probs = []
+        self.vals = []
+        self.action = []
+        self.rewards = []
+
+
 class ReplayMemory(object):  # Define a replay memory
 
     # 初始化缓冲池

@@ -35,7 +35,7 @@ SYNC_TARGET_FRAMES = 100  # 更新目标网络频率
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 0.8
 EPSILON_FINAL = 0.01
-EPSILON = 400000
+EPSILON = 200000
 
 RESET = 100000  # 重置游戏次数
 
@@ -183,8 +183,8 @@ if __name__ == '__main__':
         print("current reward:", reward)
         print("current 100 times total rewards:", np.mean(total_reward[-100:]))
         recent_reward.append(np.mean(total_reward[-100:]))
-        if np.mean(total_reward[-100:]) > 0.7:
-            break
+        # if np.mean(total_reward[-100:]) > 0.7:
+        #     break
 
         for i, agent in enumerate(agents):
             # print("length of {} buffer".format(agent.id), len(agent.buffer))
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                 # print("cur_aim_loss", loss_aim.item())
                 loss_task_list.append(loss_task.item())
                 loss_aim_list.append(loss_aim.item())
-                reward_1.append(env.reward[1])
+                # reward_1.append(env.reward[1])
         eliposde -= 1
 
     cur_time = time.strftime("%Y-%m-%d", time.localtime(time.time()))
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     # plt.title("目标选择损失曲线")
     # plt.show()
 
-    plt.plot(range(100000), reward_1[-100000:])
-    plt.title("车辆一奖励曲线")
-    plt.show()
+    # plt.plot(range(100000), reward_1[-100000:])
+    # plt.title("车辆一奖励曲线")
+    # plt.show()
 

@@ -23,7 +23,7 @@ class MEC:
         # 接受任务的数量
         self.sum_needDeal_task = 0
         # 此时刻有多少动作选则我 多少任务选择传输给我
-        self.len_action = 0
+        # self.len_action = 0
         # 等待计算的任务队列（理解为挂起状态）
         self.task_queue = []
         # 用于奖励计算的任务队列
@@ -56,6 +56,6 @@ class MEC:
         self.state = []
         self.state.extend(self.loc)
         self.state.append(self.sum_needDeal_task)
-        self.state.append(self.len_action)
+        # self.state.append(self.len_action)
         self.state.append(self.resources)
         return self.state
