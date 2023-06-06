@@ -5,7 +5,11 @@ from random import sample
 import numpy as np
 
 Experience = namedtuple('Transition',
-                        field_names=['state', 'action', 'reward', 'next_state'])  # Define a transition tuple
+                        field_names=['cur_otherState', 'cur_TaskState', "cur_NeighborState",  # 状态
+                                     'taskAction', 'aimAction',  # 动作
+                                     'reward',  # 奖励
+                                     'next_otherState', 'next_TaskState',
+                                     'next_NeighborState'])  # Define a transition tuple
 
 
 class PPOMemory:
@@ -104,13 +108,13 @@ class ExperienceBuffer:
 
     def sample(self, batch_size):
         indices = np.random.choice(len(self.buffer), batch_size, replace=False)
-        cur_otherState, cur_TaskState, taskAction, aimAction, rewards, next_otherState, next_TaskState = zip(
+        cur_otherState, cur_TaskState, cur_NeighborState, taskAction, aimAction, rewards, next_otherState, next_TaskState, next_NeighborState = zip(
             *[self.buffer[idx] for idx in indices])
         # 转换成numpy
-        return np.array(cur_otherState), np.array(cur_TaskState), \
+        return np.array(cur_otherState), np.array(cur_TaskState), np.array(cur_NeighborState), \
                np.array(taskAction), np.array(aimAction), \
                np.array(rewards, dtype=np.float32), \
-               np.array(next_otherState), np.array(next_TaskState)
+               np.array(next_otherState), np.array(next_TaskState), np.array(next_NeighborState)
 
     # 清空
     def clear(self):

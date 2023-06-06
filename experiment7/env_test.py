@@ -56,9 +56,9 @@ if __name__ == '__main__':
             # action_task.append(np.random.randint(0, 10))
             action_task.append(0)
             # action_aim.append(np.random.randint(0, 7))
+            action_aim.append(2)
             # action_aim.append(1)
-            action_aim.append(1)
-        other_state, task_state, vehicle_state, _, _, _, Reward, _ = env.step(action_task, action_aim)
+        other_state, task_state, vehicle_state, _, _, _, _, Reward, _ = env.step(action_task, action_aim)
         # reward.append(Reward)
         # print("第{}次平均奖励{}".format(step, Reward))
         # print("当前状态:", state)
@@ -93,17 +93,17 @@ if __name__ == '__main__':
     plt.bar(range(len(avg)), avg, color="blue")
     plt.show()
     #
-    # plt.figure()
-    # avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 3 != 0]
-    # plt.ylabel("Price")
-    # plt.bar(range(len(avg)), avg, color="blue")
-    # plt.show()
-    #
-    # plt.figure()
-    # avg = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if i % 3 != 0]
-    # plt.ylabel("successRate")
-    # plt.bar(range(len(avg)), avg, color="blue")
-    # plt.show()
+    plt.figure()
+    avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 4 != 0]
+    plt.ylabel("Price")
+    plt.bar(range(len(avg)), avg, color="blue")
+    plt.show()
+
+    plt.figure()
+    avg = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if i % 4 != 0]
+    plt.ylabel("successRate")
+    plt.bar(range(len(avg)), avg, color="blue")
+    plt.show()
 
     # plt.figure()
     # plt.ylabel("transTime")

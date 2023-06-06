@@ -8,14 +8,13 @@ class Task:
     定义任务类型
     """
 
-    def __init__(self, vehicle=None, createTime=0):
+    def __init__(self, vehicle=None, createTime=0, flag=1):
         # 产生任务的车辆
         self.vehicle = vehicle
         # 完成该任务所消耗的资源
         self.aim = None  # 传送对象
 
-        flag = np.random.randint(1, 3)
-        if flag <= 2:
+        if flag == 1:
             # 娱乐性任务
             self.max_time = np.random.randint(50, 70)  # ms  最大容忍时间
         else:

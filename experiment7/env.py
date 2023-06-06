@@ -93,7 +93,7 @@ class Env:
         # 记录每辆车的历史奖励
         self.vehicleReward = []
         # 当前奖励
-        self.reward = [0] * self.num_Vehicles
+        self.reward = [.0] * self.num_Vehicles
         # 当前时间
         self.cur_frame = 0
         # 所有车的卸载动作
@@ -104,6 +104,8 @@ class Env:
         self.otherState = []
         # 全局任务队列信息
         self.taskState = []
+        # 邻居表信息
+        self.neighborState = []
         # 描述每辆车的状态
         self.vehicles_state = []
         # 系统的缓冲池
@@ -163,6 +165,7 @@ class Env:
             self.vehicles_state.append(vehicle.self_state)
             # 全局任务状态
             self.taskState.append(vehicle.task_state)
+            self.neighborState.append(vehicle.neighbor_state)
 
         self.otherState.extend(self.MEC.state)
 
@@ -259,38 +262,40 @@ class Env:
                 else:
                     vehicle.accept_task.append(task)
 
-            elif type(aim) == Vehicle and vehicle.trans_task_for_vehicle == 1:
-                # 有任务在传输 放到传输等待队列中
-                if vehicle.queue_for_trans_vehicle.is_empty():
-                    task.wait_time = 0
-                else:
-                    last_task = vehicle.queue_for_trans_vehicle.peek()
-                    task.wait_time = last_task.wait_time + last_task.need_trans_size / last_task.rate
+            elif type(aim) == Vehicle:
                 vehicle.queue_for_trans_vehicle.push(task)
-                # self.reward[i] = Ki - Kq * vehicle.len_task - vehicle.overflow
-            elif type(aim) == MEC and vehicle.trans_task_for_mec == 1:
-                # 有任务在传输 任务失败
-                if vehicle.queue_for_trans_mec.is_empty():
+                # 有任务在传输 放到传输等待队列中
+                if vehicle.trans_task_for_vehicle == 0:
+                    vehicle.trans_task_for_vehicle = 1
                     task.wait_time = 0
                 else:
-                    last_task = vehicle.queue_for_trans_mec.peek()
+                    last_task = vehicle.queue_for_trans_vehicle.getLast()
                     task.wait_time = last_task.wait_time + last_task.need_trans_size / last_task.rate
-                vehicle.queue_for_trans_mec.push(task)
                 # self.reward[i] = Ki - Kq * vehicle.len_task - vehicle.overflow
-            if task.wait_time > 0:
-                print("传输需等待：{}ms".format(task.wait_time))
-            # 需要传输 卸载给远程
-            else:
-                # task.pick_time = self.cur_frame % 1000
-                # task.aim = aim
-                # task.rate = self.compute_rate(task.vehicle, task.aim)
-
-                # aim.len_action += 1
-                self.need_trans_task.append(task)
-                if type(aim) == MEC:
+            elif type(aim) == MEC:
+                vehicle.queue_for_trans_mec.push(task)
+                # 有任务在传输 任务失败
+                if vehicle.trans_task_for_mec == 0:
                     vehicle.trans_task_for_mec = 1
+                    task.wait_time = 0
                 else:
-                    vehicle.trans_task_for_vehicle = 1
+                    last_task = vehicle.queue_for_trans_mec.getLast()
+                    task.wait_time = last_task.wait_time + last_task.need_trans_size / last_task.rate
+                # self.reward[i] = Ki - Kq * vehicle.len_task - vehicle.overflow
+            # if task.wait_time > 0:
+            #     print("传输需等待：{}ms".format(task.wait_time))
+            # 需要传输 卸载给远程
+            # else:
+            #     # task.pick_time = self.cur_frame % 1000
+            #     # task.aim = aim
+            #     # task.rate = self.compute_rate(task.vehicle, task.aim)
+            #
+            #     # aim.len_action += 1
+            #     # self.need_trans_task.append(task)
+            #     if type(aim) == MEC:
+            #         vehicle.trans_task_for_mec = 1
+            #     else:
+            #         vehicle.trans_task_for_vehicle = 1
 
     # 计算距离(车到车或者车到MEC)  aim：接受任务的目标
     @staticmethod
@@ -411,8 +416,8 @@ class Env:
 
         # print("pick_time", task.pick_time)
         # print("create_time", task.create_time)
-        if trans_time > 10:
-            print("传输需要{}ms".format(trans_time))
+        # if trans_time > 10:
+        #     print("传输需要{}ms".format(trans_time))
         # if task.hold_time > 0:
         #     print("等待时长为{}ms".format(task.hold_time))
         # print("计算需要{}ms".format(compute_time))
@@ -457,43 +462,97 @@ class Env:
         """
         根据动作将任务添加至对应的列表当中  分配任务
         """
-        need_task = []
-        time = cur_frame - self.cur_frame
-        # 远程卸载
-        for task in self.need_trans_task:
-            aim = task.aim
-            vehicle = task.vehicle
-            distance = self.compute_distance(vehicle, aim)
-            # 超出传输范围
-            if distance > aim.range:
-                continue
-            # 真实传输时间加上一时隙
-            # task.trans_time += time
-            # 计算实时速率
-            rate = task.rate
-            # 能够传输完
-            if task.need_trans_size <= time * rate:
-                # 表示当前任务能够传输完成 可以继续传输其他任务
-                if type(task.aim) == MEC:
-                    if vehicle.queue_for_trans_mec.is_empty():
-                        self.vehicles[vehicle.id].trans_task_for_mec = 0
-                    else:
-                        need_task.append(vehicle.queue_for_trans_mec.pop())
+        for i, vehicle in enumerate(self.vehicles):
+            time = cur_frame - self.cur_frame
+            while not vehicle.queue_for_trans_mec.is_empty() and time > 0:
+                task = vehicle.queue_for_trans_mec.peek()
+                aim = task.aim
+                needTime = task.need_trans_size / task.rate
+                if time >= needTime:
+                    time -= needTime
+                    vehicle.queue_for_trans_mec.pop()
+                    if len(aim.accept_task) < aim.max_task:  # 能够直接处理
+                        aim.accept_task.append(task)
+                    elif len(aim.task_queue) < aim.max_queue:  # 能够进入等待队列
+                        aim.task_queue.append(task)
                 else:
-                    if vehicle.queue_for_trans_vehicle.is_empty():
-                        self.vehicles[vehicle.id].trans_task_for_vehicle = 0
-                    else:
-                        need_task.append(vehicle.queue_for_trans_vehicle.pop())
-                # print("第{}车任务传输完成，真实花费{}ms".format(vehicle.id, task.trans_time))
-                if len(aim.accept_task) < aim.max_task:  # 能够直接处理
-                    aim.accept_task.append(task)
-                elif len(aim.task_queue) < aim.max_queue:  # 能够进入等待队列
-                    aim.task_queue.append(task)
-                # aim.len_action -= 1
-            else:
-                task.need_trans_size -= time * rate
-                need_task.append(task)
-        self.need_trans_task = need_task
+                    task.need_trans_size -= time * task.rate
+                    break
+            if vehicle.queue_for_trans_mec.is_empty():
+                self.vehicles[vehicle.id].trans_task_for_mec = 0
+
+            time = cur_frame - self.cur_frame
+            while not vehicle.queue_for_trans_vehicle.is_empty():
+                task = vehicle.queue_for_trans_vehicle.peek()
+                aim = task.aim
+                needTime = task.need_trans_size / task.rate
+                if time >= needTime:
+                    time -= needTime
+                    vehicle.queue_for_trans_vehicle.pop()
+                    if len(aim.accept_task) < aim.max_task:  # 能够直接处理
+                        aim.accept_task.append(task)
+                    elif len(aim.task_queue) < aim.max_queue:  # 能够进入等待队列
+                        aim.task_queue.append(task)
+                else:
+                    task.need_trans_size -= time * task.rate
+                    break
+            if vehicle.queue_for_trans_vehicle.is_empty():
+                self.vehicles[vehicle.id].trans_task_for_vehicle = 0
+
+        # need_task = []
+        # time = cur_frame - self.cur_frame
+        # # 远程卸载
+        # for task in self.need_trans_task:
+        #     aim = task.aim
+        #     vehicle = task.vehicle
+        #     distance = self.compute_distance(vehicle, aim)
+        #     # 超出传输范围
+        #     if distance > aim.range:
+        #         continue
+        #     # 真实传输时间加上一时隙
+        #     # task.trans_time += time
+        #     # 计算实时速率
+        #     rate = task.rate
+        #     # 能够传输完
+        #     if task.need_trans_size <= time * rate:
+        #         remainTime = time - task.need_trans_size / rate
+        #         # 表示当前任务能够传输完成 可以继续传输其他任务
+        #         if type(task.aim) == MEC:
+        #             if vehicle.queue_for_trans_mec.is_empty():
+        #                 self.vehicles[vehicle.id].trans_task_for_mec = 0
+        #             else:
+        #                 while not vehicle.queue_for_trans_mec.is_empty():
+        #                     task = vehicle.queue_for_trans_mec.pop()
+        #                     remainTime -= task.need_trans_size / task.rate
+        #                     if remainTime <= 0:
+        #                         break
+        #                 if vehicle.queue_for_trans_mec.is_empty():
+        #                     self.vehicles[vehicle.id].trans_task_for_mec = 0
+        #                 else:
+        #                     need_task.append(vehicle.queue_for_trans_mec.pop())
+        #         else:
+        #             if vehicle.queue_for_trans_vehicle.is_empty():
+        #                 self.vehicles[vehicle.id].trans_task_for_vehicle = 0
+        #             else:
+        #                 while not vehicle.queue_for_trans_vehicle.is_empty():
+        #                     task = vehicle.queue_for_trans_vehicle.pop()
+        #                     remainTime -= task.need_trans_size / task.rate
+        #                     if remainTime <= 0:
+        #                         break
+        #                 if vehicle.queue_for_trans_vehicle.is_empty():
+        #                     self.vehicles[vehicle.id].trans_task_for_vehicle = 0
+        #                 else:
+        #                     need_task.append(vehicle.queue_for_trans_mec.pop())
+        #         # print("第{}车任务传输完成，真实花费{}ms".format(vehicle.id, task.trans_time))
+        #         if len(aim.accept_task) < aim.max_task:  # 能够直接处理
+        #             aim.accept_task.append(task)
+        #         elif len(aim.task_queue) < aim.max_queue:  # 能够进入等待队列
+        #             aim.task_queue.append(task)
+        #         # aim.len_action -= 1
+        #     else:
+        #         task.need_trans_size -= time * rate
+        #         need_task.append(task)
+        # self.need_trans_task = need_task
 
     # 更新资源信息并为处理完的任务计算奖励
     def renew_resources(self, cur_frame):
@@ -695,6 +754,7 @@ class Env:
         self.otherState = []
         self.taskState = []
         self.vehicles_state = []
+        self.neighborState = []
 
         # 更新车位置信息
         self.renew_positions(cur_frame)
@@ -708,6 +768,7 @@ class Env:
             # 更新资源已经接受的任务信息
             self.otherState.extend(vehicle.get_state())
             self.taskState.append(vehicle.task_state)
+            self.neighborState.append(vehicle.neighbor_state)
             self.vehicles_state.append(vehicle.self_state)
             # 更新任务信息
             vehicle.cur_task = None
@@ -739,6 +800,7 @@ class Env:
         other_state = self.otherState
         task_state = self.taskState
         vehicle_state = self.vehicles_state
+        # neighbor_state = self.neighborState
 
         # 更新资源信息以及车辆任务信息
         self.renew_resources(cur_frame)
@@ -753,4 +815,4 @@ class Env:
         # 平均奖励
         self.Reward = np.mean([reward for i, reward in enumerate(self.reward) if i % 4 != 0])
 
-        return other_state, task_state, vehicle_state, self.vehicles_state, self.otherState, self.taskState, self.Reward, self.reward
+        return other_state, task_state, vehicle_state, self.vehicles_state, self.otherState, self.taskState, self.neighborState, self.Reward, self.reward

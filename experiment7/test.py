@@ -71,11 +71,13 @@ if __name__ == '__main__':
     models = []
 
     task_shape = np.array([vehicles[0].task_state]).shape
+    neighbor_shape = np.array([vehicles[0].neighbor_state]).shape
     for i in range(N):
         # 加载模型
-        tgt_model = model.DQN(len(vehicles[0].self_state), task_shape, 10, len(vehicles[0].neighbor) + 2)
+        tgt_model = model.DQN(len(vehicles[0].self_state), task_shape, neighbor_shape, 10,
+                              len(vehicles[0].neighbor) + 2)
         tgt_model.load_state_dict(
-            torch.load("D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\2023-05-29\\vehicle{}.pkl".format(i)))
+            torch.load("D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\2023-06-02\\vehicle{}.pkl".format(i)))
         models.append(tgt_model)
 
     # state_v = torch.tensor([vehicles[i].otherState], dtype=torch.float32)
@@ -101,7 +103,8 @@ if __name__ == '__main__':
         for i in range(N):
             state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
             taskState_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
-            taskAction, aimAction = models[i](state_v, taskState_v)
+            neighborState_v = torch.tensor([[vehicles[i].neighbor_state]], dtype=torch.float32)
+            taskAction, aimAction = models[i](state_v, taskState_v, neighborState_v)
 
             # taskAction = np.array(taskAction, dtype=np.float32).reshape(-1)
             # aimAction = np.array(aimAction, dtype=np.float32).reshape(-1)
@@ -121,7 +124,7 @@ if __name__ == '__main__':
             # action_task_for_random.append(0)
             # action_aim_for_random.append(np.random.randint(0, 7))
 
-        other_state, task_state, vehicle_state, _, _, _, Reward, reward = env.step(action_task, action_aim)
+        other_state, task_state, vehicle_state, _, _, _, _, Reward, reward = env.step(action_task, action_aim)
         # _, _, _, _, _, _, Reward_mec, reward_mec = mecEnv.step(action_aim_for_mec)
         # _, _, _, _, _, _, Reward_self, reward_self = selfEnv.step(action_aim_for_self)
         # randomEnv.step(action_aim_for_random)
@@ -135,6 +138,8 @@ if __name__ == '__main__':
     avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
     avg_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 4 != 0]
     avg_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 4 != 0]
+    avg_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
+                   i % 4 != 0]
     # fig, aix = plt.subplots(2, 2)
     # aix[0, 0].plot(range(len(vehicleReward)), vehicleReward)
     # aix[0, 0].set_title("MAPPO某一辆车奖励")
@@ -167,6 +172,8 @@ if __name__ == '__main__':
     avg_self = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
     avg_self_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 4 != 0]
     avg_self_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 4 != 0]
+    avg_self_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
+                        i % 4 != 0]
     env.reset()
 
     for step in range(500):
@@ -182,6 +189,8 @@ if __name__ == '__main__':
     avg_mec = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
     avg_mec_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 4 != 0]
     avg_mec_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 4 != 0]
+    avg_mec_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
+                       i % 4 != 0]
     env.reset()
 
     for step in range(500):
@@ -197,7 +206,8 @@ if __name__ == '__main__':
     avg_random = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
     avg_random_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 4 != 0]
     avg_random_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 4 != 0]
-
+    avg_random_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
+                          i % 4 != 0]
     plt.figure()
 
     # avg[11] = 60.36
@@ -252,11 +262,21 @@ if __name__ == '__main__':
     # avg[11] = 0.17
     # avg[14] = 0.22
     # avg[13] -= 0.05
-    x_label = [i for i in range(len(avg))]
+    x_label = [i + 1 for i in range(len(avg))]
     y = [avg_price, avg_mec_price, avg_self_price, avg_random_price]
     labels = ["JOTA-MAPPO", "ME", "LE", "RA"]
     ParallelBar(x_label, y, labels=labels, colors=["b", "r", "y", "c"], width=0.35, gap=2)
     plt.legend(loc="upper right")
     plt.ylabel("Average Task Completion Price")
+    plt.xlabel("Vehicle Index")
+    plt.show()
+
+    plt.figure()
+    x_label = [i + 1 for i in range(len(avg_success))]
+    y = [avg_success, avg_mec_success, avg_self_success, avg_random_success]
+    labels = ["JOTA-MAPPO", "ME", "LE", "RA"]
+    ParallelBar(x_label, y, labels=labels, colors=["b", "r", "y", "c"], width=0.35, gap=2)
+    plt.legend(loc="upper right")
+    plt.ylabel("Task Success Probability")
     plt.xlabel("Vehicle Index")
     plt.show()

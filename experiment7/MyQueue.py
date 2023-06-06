@@ -11,6 +11,11 @@ class MyQueue:
         return self.items.pop(0)
 
     def peek(self):
+        return self.items[0]
+
+    def getLast(self):
+        if self.is_empty():
+            return None
         return self.items[len(self.items) - 1]
 
     def is_empty(self):

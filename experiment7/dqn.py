@@ -22,10 +22,11 @@ mpl.rcParams["font.sans-serif"] = ["SimHei"]
 matplotlib.rcParams['axes.unicode_minus'] = False
 
 Experience = namedtuple('Transition',
-                        field_names=['cur_otherState', 'cur_TaskState',  # 状态
+                        field_names=['cur_otherState', 'cur_TaskState', "cur_NeighborState",  # 状态
                                      'taskAction', 'aimAction',  # 动作
                                      'reward',  # 奖励
-                                     'next_otherState', 'next_TaskState'])  # Define a transition tuple
+                                     'next_otherState', 'next_TaskState',
+                                     'next_NeighborState'])  # Define a transition tuple
 GAMMA = 0.99
 BATCH_SIZE = 64
 REPLAY_SIZE = 10000
@@ -51,6 +52,7 @@ def play_step(env, epsilon, models):
     vehicles = env.vehicles
     old_otherState = []
     old_taskState = []
+    old_neighborState = []
 
     actionTask = []
     actionAim = []
@@ -58,6 +60,7 @@ def play_step(env, epsilon, models):
     for i, model in enumerate(models):
         old_otherState.append(vehicles[i].self_state)
         old_taskState.append(vehicles[i].task_state)
+        old_neighborState.append(vehicles[i].neighbor_state)
         if np.random.random() < epsilon:
             # 随机动作
             actionTask.append(np.random.randint(0, 10))
@@ -65,7 +68,8 @@ def play_step(env, epsilon, models):
         else:
             state_v = torch.tensor([vehicles[i].self_state], dtype=torch.float32)
             taskState_v = torch.tensor([[vehicles[i].task_state]], dtype=torch.float32)
-            taskAction, aimAction = model(state_v, taskState_v)
+            neighborState_v = torch.tensor([[vehicles[i].neighbor_state]], dtype=torch.float32)
+            taskAction, aimAction = model(state_v, taskState_v, neighborState_v)
 
             taskAction = np.array(taskAction, dtype=np.float32).reshape(-1)
             aimAction = np.array(aimAction, dtype=np.float32).reshape(-1)
@@ -73,25 +77,26 @@ def play_step(env, epsilon, models):
             actionAim.append(np.argmax(aimAction))
             actionTask.append(np.argmax(taskAction))
     # print("action:", action)
-    _, _, _, otherState, _, taskState, Reward, reward = env.step(actionTask, actionAim)
+    _, _, _, otherState, _, taskState, neighborState, Reward, reward = env.step(actionTask, actionAim)
     # print("reward:", reward)
 
     # 加入各自的缓存池【当前其他状态、当前任务状态、目标动作、任务动作，下一其他状态、下一任务状态】
     for i, vehicle in enumerate(vehicles):
-        exp = Experience(old_otherState[i], [old_taskState[i]],
+        exp = Experience(old_otherState[i], [old_taskState[i]], [old_neighborState[i]],
                          actionTask[i], actionAim[i],
                          reward[i],
-                         otherState[i], [taskState[i]])
+                         otherState[i], [taskState[i]], [neighborState[i]])
         vehicle.buffer.append(exp)
     return round(Reward, 2)  # 返回总的平均奖励
 
 
 # 计算一个智能体的损失
 def calc_loss(batch, net: DQN, tgt_net: DQN, device="cpu"):
-    cur_otherState, cur_TaskState, taskAction, aimAction, rewards, next_otherState, next_TaskState = batch  #
+    cur_otherState, cur_TaskState, curNeighborState, taskAction, aimAction, rewards, next_otherState, next_TaskState, next_NeighborState = batch  #
 
     otherStates_v = torch.tensor(np.array(cur_otherState, copy=False), dtype=torch.float32).to(device)
     taskStates_v = torch.tensor(np.array(cur_TaskState, copy=False), dtype=torch.float32).to(device)
+    neighborStates_v = torch.tensor(np.array(curNeighborState, copy=False), dtype=torch.float32).to(device)
     # print("states_v:", states_v)  # batch状态
     taskActions_v = torch.tensor(np.array(taskAction), dtype=torch.int64).to(device)
     aimActions_v = torch.tensor(np.array(aimAction), dtype=torch.int64).to(device)
@@ -100,17 +105,20 @@ def calc_loss(batch, net: DQN, tgt_net: DQN, device="cpu"):
     # print("rewards_v", rewards_v)  # batch奖励
     next_otherStates_v = torch.tensor(np.array(next_otherState, copy=False), dtype=torch.float32).to(device)
     next_taskStates_v = torch.tensor(np.array(next_TaskState, copy=False), dtype=torch.float32).to(device)
+    next_NeighborState_v = torch.tensor(np.array(next_NeighborState, copy=False), dtype=torch.float32).to(device)
     # print("next_states_v", next_states_v)  # batch下一个状态
 
     # 计算当前网络q值
     taskActionValues, aimActionValues = net(otherStates_v,
-                                            taskStates_v)  # .gather(1, aimActions_v.unsqueeze(-1)).squeeze(-1)
+                                            taskStates_v,
+                                            neighborStates_v)  # .gather(1, aimActions_v.unsqueeze(-1)).squeeze(-1)
     taskActionValues = taskActionValues.gather(1, taskActions_v.unsqueeze(-1)).squeeze(-1)
     aimActionValues = aimActionValues.gather(1, aimActions_v.unsqueeze(-1)).squeeze(-1)
 
     # 计算目标网络q值
     next_taskActionValues, next_aimActionValues = tgt_net(next_otherStates_v,
-                                                          next_taskStates_v)  # .max(1)[0]  # 得到最大的q值
+                                                          next_taskStates_v,
+                                                          next_NeighborState_v)  # .max(1)[0]  # 得到最大的q值
 
     next_taskActionValues = next_taskActionValues.max(1)[0].detach()
     next_aimActionValues = next_aimActionValues.max(1)[0].detach()
@@ -135,19 +143,21 @@ if __name__ == '__main__':
     models = []
     tgt_models = []
     optimizers = []
+    task_shape = np.array([agents[0].task_state]).shape
+    neighbor_shape = np.array([agents[0].neighbor_state]).shape
     for agent in agents:
         # print(agent.get_location, agent.velocity)
-        task_shape = np.array([agent.task_state]).shape
+
         # print(task_shape)
-        model = DQN(len(agent.self_state), task_shape, MAX_TASK, len(agent.neighbor) + 2)
+        model = DQN(len(agent.self_state), task_shape, neighbor_shape, MAX_TASK, len(agent.neighbor) + 2)
         models.append(model)
         optimer = optim.RMSprop(params=model.parameters(), lr=LEARNING_RATE, momentum=momentum)
         optimizers.append(optimer)
     for agent in agents:
         # print(agent.get_location, agent.velocity)
-        task_shape = np.array([agent.task_state]).shape
+        # task_shape = np.array([agent.task_state]).shape
         # print(task_shape)
-        model = DQN(len(agent.self_state), task_shape, MAX_TASK, len(agent.neighbor) + 2)
+        model = DQN(len(agent.self_state), task_shape, neighbor_shape, MAX_TASK, len(agent.neighbor) + 2)
         model.load_state_dict(models[agent.id].state_dict())
         tgt_models.append(model)
 
@@ -155,9 +165,10 @@ if __name__ == '__main__':
     model = models[0]
     state_v = torch.tensor([env.vehicles[0].self_state], dtype=torch.float32)
     taskState_v = torch.tensor([[env.vehicles[0].task_state]], dtype=torch.float32)
+    neighbor_v = torch.tensor([[env.vehicles[0].neighbor_state]], dtype=torch.float32)
     # 针对有网络模型，但还没有训练保存 .pth 文件的情况
     modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
-    torch.onnx.export(model, (state_v, taskState_v), modelpath)  # 导出并保存
+    torch.onnx.export(model, (state_v, taskState_v, neighbor_v), modelpath)  # 导出并保存
     netron.start(modelpath)
 
     total_reward = []
@@ -231,4 +242,3 @@ if __name__ == '__main__':
     # plt.plot(range(100000), reward_1[-100000:])
     # plt.title("车辆一奖励曲线")
     # plt.show()
-
