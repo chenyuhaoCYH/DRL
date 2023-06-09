@@ -6,49 +6,98 @@ from torch.nn import functional as F
 from torch.distributions.categorical import Categorical
 
 HID_SIZE = 64
+HID_SIZE_MIN = 32
 
 
 class ModelActor(nn.Module):
-    def __init__(self, obs_dim, act_dim, task_dim):
+    def __init__(self, obs_dim, neighbor_dim, task_dim, task_aim_dim, act_aim_dim):
         super(ModelActor, self).__init__()
-        self.act_dim = act_dim
 
-        self.mu = nn.Sequential(
-            nn.Linear(obs_dim + HID_SIZE, HID_SIZE * 2),
+        self.cnn_task = CNNLayer(task_dim, HID_SIZE)
+        self.cnn_neighbor = CNNLayer(neighbor_dim, HID_SIZE_MIN)
+        self.same = nn.Sequential(
+            nn.Linear(HID_SIZE + HID_SIZE_MIN + obs_dim, 2 * HID_SIZE),
             nn.ReLU(),
-            nn.Linear(HID_SIZE * 2, HID_SIZE),
+            nn.Linear(2 * HID_SIZE, HID_SIZE),
             nn.ReLU(),
-            nn.Linear(HID_SIZE, act_dim * 2),
+            nn.Linear(HID_SIZE, 2 * HID_SIZE),
+            nn.ReLU(),
         )
-        self.cnn = CNNLayer(task_dim, HID_SIZE)
+        self.task = nn.Sequential(
+            nn.Linear(2 * HID_SIZE, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, HID_SIZE_MIN),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE_MIN, task_aim_dim),
+        )
+        self.act = nn.Sequential(
+            nn.Linear(2 * HID_SIZE, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, HID_SIZE_MIN),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE_MIN, act_aim_dim),
+        )
+        self.logstd_task = nn.Parameter(torch.zeros(task_aim_dim))
+        self.logstd_aim = nn.Parameter(torch.zeros(act_aim_dim))
 
-    def forward(self, x, task):
-        cnn_out = self.cnn(task)
-        x = torch.cat((x, cnn_out), -1)
-        out = self.mu(x)
-        action_out = out[:, :self.act_dim]
-        task_out = out[:, self.act_dim:]
-        action_pro = F.softmax(action_out, dim=-1)
-        task_pro = F.softmax(task_out, dim=1)
-        print(action_pro)
-        print(task_pro)
-        return action_pro, Categorical(action_pro), task_pro, Categorical(task_pro)
+    def forward(self, obs, neighbor, task, is_train=True):
+        task_out = self.cnn_task(task)
+        neighbor_out = self.cnn_neighbor(neighbor)
+        x = torch.cat((task_out, neighbor_out, obs), -1)
+        same_out = self.same(x)
+        act_out = self.act(same_out)
+        task_out = self.task(same_out)
+        if is_train:
+            rnd_task = torch.tensor(np.random.normal(size=task_out.shape))
+            rnd_aim = torch.tensor(np.random.normal(size=act_out.shape))
+            task_out = task_out + torch.exp(self.logstd_task) * rnd_task
+            act_out = act_out + torch.exp(self.logstd_aim) * rnd_aim
+
+        # act_out = F.gumbel_softmax(act_out)
+        act_pro = F.softmax(act_out, dim=-1)
+        task_pro = F.softmax(task_out, dim=-1)
+        # print(act_pro)
+        # print(torch.sum(act_pro))
+        # print(task_pro)
+        # return act_pro, task_pro  # 打印网络结构用
+        return Categorical(task_pro), Categorical(act_pro)  # 真实使用
 
 
 class ModelCritic(nn.Module):
-    def __init__(self, obs_size):
+    def __init__(self, obs_size, task_size, act_size):
         super(ModelCritic, self).__init__()
 
+        self.cnn = CNNLayer(obs_size, HID_SIZE)
+
+        self.task_cnn = CNNLayer(task_size, HID_SIZE)
+
         self.value = nn.Sequential(
-            nn.Linear(obs_size, HID_SIZE),
+            nn.Linear(HID_SIZE * 2 + act_size, HID_SIZE * 2),
             nn.ReLU(),
-            nn.Linear(HID_SIZE, HID_SIZE),
+            nn.Linear(HID_SIZE * 2, HID_SIZE),
             nn.ReLU(),
-            nn.Linear(HID_SIZE, 1),
+            nn.Linear(HID_SIZE, HID_SIZE_MIN),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE_MIN, 1),
+        )
+        self.value1 = nn.Sequential(
+            nn.Linear(HID_SIZE * 2 + act_size, HID_SIZE * 2),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE * 2, HID_SIZE),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE, HID_SIZE_MIN),
+            nn.ReLU(),
+            nn.Linear(HID_SIZE_MIN, 1),
         )
 
-    def forward(self, x):
-        return self.value(x)
+    def forward(self, states_v, task_states_v, actions_v):
+        cnn_out = self.cnn(states_v)
+        task_out = self.task_cnn(task_states_v)
+
+        v = torch.cat((actions_v, cnn_out, task_out), -1)
+        task_value = self.value(v)
+        # aim_value = self.value1(v)
+        return task_value  # , aim_value
 
 
 class ModelSACTwinQ(nn.Module):
@@ -120,9 +169,9 @@ class AgentDDPG(ptan.agent.BaseAgent):
         return actions, new_a_states
 
 
-class DQN(nn.Module):
+class DQNCNN(nn.Module):
     def __init__(self, obs_dim, task_dim, neighbor_dim, taskAction_dim, aimAction_dim):
-        super(DQN, self).__init__()
+        super(DQNCNN, self).__init__()
         self.input_layer = nn.Linear(obs_dim + 32 + 32, 128)
         self.hidden1 = nn.Linear(128, 64)
         self.hidden2 = nn.Linear(64, 64)
@@ -153,6 +202,49 @@ class DQN(nn.Module):
         cnn_out1 = self.cnn1(task)
         cnn_out2 = self.cnn2(neighbor)
         x = torch.cat((x, cnn_out1, cnn_out2), -1)
+
+        # 公共层
+        x1 = F.relu(self.input_layer(x))
+        x2 = F.relu(self.hidden1(x1))
+        x3 = F.relu(self.hidden2(x2))
+
+        taskActionValue = self.output_layer1(x3)
+        aimActionValue = self.output_layer2(x3)
+
+        return taskActionValue, aimActionValue
+
+
+class DQN(nn.Module):
+    def __init__(self, obs_dim, task_dim, taskAction_dim, aimAction_dim):
+        super(DQN, self).__init__()
+        self.input_layer = nn.Linear(obs_dim + 32, 128)
+        self.hidden1 = nn.Linear(128, 64)
+        self.hidden2 = nn.Linear(64, 64)
+        self.hidden3 = nn.Linear(64, 128)
+        self.cnn = CNNLayer(task_dim, 32)
+        self.output_layer1 = self.common(64, taskAction_dim)
+        self.output_layer2 = self.common(64, aimAction_dim)
+
+    def common(self, input_dim, action_dim):
+        return nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            self.hidden1,
+            nn.ReLU(),
+            self.hidden2,
+            nn.ReLU(),
+            nn.Linear(64, action_dim)
+        )
+
+    def forward(self, x, task):
+        """
+
+        :param x: batch_size*state_n
+        :return: batch_size*actions_n  输出每个动作对应的q值
+        """
+        # 任务卷积层
+        cnn_out = self.cnn(task)
+        x = torch.cat((x, cnn_out), -1)
 
         # 公共层
         x1 = F.relu(self.input_layer(x))
@@ -196,7 +288,6 @@ class CNNLayer(nn.Module):
             init_(nn.Linear(hidden_size, hidden_size)), active_func)
 
     def forward(self, x):
-        x = x / 255.0
         x = self.cnn(x)
 
         return x
