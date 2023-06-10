@@ -28,7 +28,7 @@ Experience = namedtuple('Transition',
                                      'next_otherState', 'next_TaskState',
                                      'next_NeighborState'])  # Define a transition tuple
 GAMMA = 0.99
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 REPLAY_SIZE = 10000
 LEARNING_RATE = 1e-4
 SYNC_TARGET_FRAMES = 100  # 更新目标网络频率
@@ -36,7 +36,7 @@ SYNC_TARGET_FRAMES = 100  # 更新目标网络频率
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 0.8
 EPSILON_FINAL = 0.01
-EPSILON = 200000
+EPSILON = 100000
 
 RESET = 100000  # 重置游戏次数
 
@@ -162,14 +162,14 @@ if __name__ == '__main__':
         tgt_models.append(model)
 
     # 打印网络结构
-    model = models[0]
-    state_v = torch.tensor([env.vehicles[0].self_state], dtype=torch.float32)
-    taskState_v = torch.tensor([[env.vehicles[0].task_state]], dtype=torch.float32)
-    neighbor_v = torch.tensor([[env.vehicles[0].neighbor_state]], dtype=torch.float32)
-    # 针对有网络模型，但还没有训练保存 .pth 文件的情况
-    modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
-    torch.onnx.export(model, (state_v, taskState_v, neighbor_v), modelpath)  # 导出并保存
-    netron.start(modelpath)
+    # model = models[0]
+    # state_v = torch.tensor([env.vehicles[0].self_state], dtype=torch.float32)
+    # taskState_v = torch.tensor([[env.vehicles[0].task_state]], dtype=torch.float32)
+    # neighbor_v = torch.tensor([[env.vehicles[0].neighbor_state]], dtype=torch.float32)
+    # # 针对有网络模型，但还没有训练保存 .pth 文件的情况
+    # modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
+    # torch.onnx.export(model, (state_v, taskState_v, neighbor_v), modelpath)  # 导出并保存
+    # netron.start(modelpath)
 
     total_reward = []
     recent_reward = []
@@ -206,9 +206,11 @@ if __name__ == '__main__':
             optimizers[i].zero_grad()
             batch = agent.buffer.sample(BATCH_SIZE)
             loss_task, loss_aim = calc_loss(batch, models[i], tgt_models[i])
-            # print("loss:", loss_task, " ", loss_aim)
+            if i == 2:
+                print("loss:", loss_task, " ", loss_aim)
             # loss_t.backward()
             torch.autograd.backward([loss_task, loss_aim])
+            # total_loss = 0.6 * loss_aim + 0.4 * loss_task
             optimizers[i].step()
             if agent.id == 0:
                 # print("cur_loss:", loss_task.item())
@@ -218,7 +220,7 @@ if __name__ == '__main__':
                 # reward_1.append(env.reward[1])
         eliposde -= 1
 
-    cur_time = time.strftime("%Y-%m-%d", time.localtime(time.time()))
+    cur_time = time.strftime("%Y-%m-%d-%H", time.localtime(time.time()))
     # 创建文件夹
     os.makedirs("D:/pycharm/Project/VML/MyErion/experiment7/result/" + cur_time)
     for i, vehicle in enumerate(env.vehicles):

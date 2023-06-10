@@ -2,7 +2,7 @@
 
 RANGE_MEC = 1000  # MEC通信范围 /m
 RESOURCE = 10000  # 可用资源  MHz
-MAX_QUEUE = 20
+MAX_QUEUE = 40
 
 
 # 边缘服务器

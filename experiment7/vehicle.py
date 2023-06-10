@@ -3,7 +3,7 @@
 import numpy as np
 
 from MyQueue import MyQueue
-from memory import ExperienceBuffer
+from memory import ExperienceBuffer, PPOMemory
 from task import Task
 
 Dv = 100  # 车的最大通信范围
@@ -46,7 +46,7 @@ class Vehicle:
         # 用于奖励计算的任务队列
         self.task_queue_for_reward = []
         # 最多处理任务量
-        self.max_task = 3
+        self.max_task = 5
         # 等待队列最长长度
         self.max_queue = max_queue
         # 接受任务的数量(包括处理的任务和正在等待的任务)
@@ -90,6 +90,7 @@ class Vehicle:
         self.lastCreatWorkTime = 0
 
         self.timeSolt = TASK_SOLT  # * (id % 2 + 1)
+        self.memory = PPOMemory(CAPACITY)
         # 产生任务
         self.create_work()
 
@@ -131,21 +132,19 @@ class Vehicle:
                     self.lastCreatWorkTime = self.cur_frame
                     self.total_task.append(task)
                     self.len_task += 1
-                    # print("第{}辆车产生了任务".format(self.id))
                     self.overflow = 0
                 else:
-                    # print("第{}辆车任务队列已满".format(self.id))
                     self.overflow = 1
-            # 创建第二个任务
-            # if np.random.random() > 0.5:
-            #     if self.len_task < MAX_TASK:  # 队列不满
-            #         task = Task(self, self.cur_frame % 1000)
-            #         self.sum_create_task += 1
-            #         self.lastCreatWorkTime = self.cur_frame
-            #         self.total_task.append(task)
-            #         self.len_task += 1
-            #         # print("第{}辆车产生了任务".format(self.id))
-            #         self.overflow = 0
+        # 创建第二个任务
+        # if np.random.random() > 0.5:
+        #     if self.len_task < MAX_TASK:  # 队列不满
+        #         task = Task(self, self.cur_frame % 1000)
+        #         self.sum_create_task += 1
+        #         self.lastCreatWorkTime = self.cur_frame
+        #         self.total_task.append(task)
+        #         self.len_task += 1
+        #         # print("第{}辆车产生了任务".format(self.id))
+        #         self.overflow = 0
 
     """
     获得状态
@@ -183,8 +182,8 @@ class Vehicle:
         self.self_state.append(self.queue_for_trans_mec.size())
 
         # 当前任务数量
-        # self.self_state.append(self.len_task)
-        # self.excludeNeighbor_state.append(self.len_task)
+        self.self_state.append(self.len_task)
+        self.excludeNeighbor_state.append(self.len_task)
 
         # 邻居表  7*数量
         for neighbor in self.neighbor:

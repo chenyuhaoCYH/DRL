@@ -56,7 +56,7 @@ if __name__ == '__main__':
             # action_task.append(np.random.randint(0, 10))
             action_task.append(0)
             # action_aim.append(np.random.randint(0, 7))
-            action_aim.append(2)
+            action_aim.append(1)
             # action_aim.append(1)
         other_state, task_state, vehicle_state, _, _, _, _, Reward, _ = env.step(action_task, action_aim)
         # reward.append(Reward)

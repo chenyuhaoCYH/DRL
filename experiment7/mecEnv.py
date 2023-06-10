@@ -10,7 +10,7 @@ from vehicle import Vehicle
 
 MAX_TASK = 5  # 只能选前五个任务
 
-N = 24  # 车的数量
+N = 20  # 车的数量
 MAX_NEIGHBOR = 5  # 最大邻居数
 CAPACITY = 20000  # 缓冲池大小
 
@@ -210,8 +210,8 @@ class MecEnv:
             aim = self.get_aim(vehicle, self.offloadingActions[i])
 
             # 目标任务等待队列已满(该目标为本地)
-            if len(aim.task_queue) >= aim.max_queue:
-                aim = vehicle
+            # if len(aim.task_queue) >= aim.max_queue:
+            #     aim = vehicle
 
             task.aim = aim
             # 如果达到最高计算任务  放置等待队列中用于计算奖励
@@ -699,7 +699,7 @@ class MecEnv:
         self.otherState.extend(self.MEC.get_state())
 
     # 执行动作
-    def step(self, offloadingActions):
+    def step(self, taskactions, offloadingActions):
         cur_frame = self.cur_frame + 10  # ms
         # 分配动作
         # 卸载动作

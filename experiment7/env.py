@@ -410,6 +410,7 @@ class Env:
         # 计算时间
         compute_time = task.need_time
         # 总时间=出队列时间-创建时间+传输时间+队列持有时间+处理时间+ 50) % 50
+        #
         sum_time = trans_time + compute_time + np.abs(
             task.pick_time - task.create_time + 1000) % 1000 + task.hold_time + task.wait_time
         self.avg[vehicle.id].append(sum_time)
@@ -441,10 +442,10 @@ class Env:
         #     energy /= 10
         self.avg_price[vehicle.id].append(price)
         self.avg_energy[vehicle.id].append(energy)
-        reward = - (a * sum_time + b * energy + c * price)
+        reward = - (a * sum_time + b * energy + c * price) / 10
 
         if sum_time > task.max_time:
-            reward += T2 * (sum_time - task.max_time)
+            reward += T2 * (sum_time - task.max_time) / 10
         else:
             vehicle.success_task += 1
         return round(reward, 2)
