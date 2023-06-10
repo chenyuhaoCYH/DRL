@@ -169,9 +169,9 @@ class AgentDDPG(ptan.agent.BaseAgent):
         return actions, new_a_states
 
 
-class DQN(nn.Module):
+class DQNCNN(nn.Module):
     def __init__(self, obs_dim, task_dim, neighbor_dim, taskAction_dim, aimAction_dim):
-        super(DQN, self).__init__()
+        super(DQNCNN, self).__init__()
         self.input_layer = nn.Linear(obs_dim + 32 + 32, 128)
         self.hidden1 = nn.Linear(128, 64)
         self.hidden2 = nn.Linear(64, 64)
@@ -202,6 +202,49 @@ class DQN(nn.Module):
         cnn_out1 = self.cnn1(task)
         cnn_out2 = self.cnn2(neighbor)
         x = torch.cat((x, cnn_out1, cnn_out2), -1)
+
+        # 公共层
+        x1 = F.relu(self.input_layer(x))
+        x2 = F.relu(self.hidden1(x1))
+        x3 = F.relu(self.hidden2(x2))
+
+        taskActionValue = self.output_layer1(x3)
+        aimActionValue = self.output_layer2(x3)
+
+        return taskActionValue, aimActionValue
+
+
+class DQN(nn.Module):
+    def __init__(self, obs_dim, task_dim, taskAction_dim, aimAction_dim):
+        super(DQN, self).__init__()
+        self.input_layer = nn.Linear(obs_dim + 32, 128)
+        self.hidden1 = nn.Linear(128, 64)
+        self.hidden2 = nn.Linear(64, 64)
+        self.hidden3 = nn.Linear(64, 128)
+        self.cnn = CNNLayer(task_dim, 32)
+        self.output_layer1 = self.common(64, taskAction_dim)
+        self.output_layer2 = self.common(64, aimAction_dim)
+
+    def common(self, input_dim, action_dim):
+        return nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            self.hidden1,
+            nn.ReLU(),
+            self.hidden2,
+            nn.ReLU(),
+            nn.Linear(64, action_dim)
+        )
+
+    def forward(self, x, task):
+        """
+
+        :param x: batch_size*state_n
+        :return: batch_size*actions_n  输出每个动作对应的q值
+        """
+        # 任务卷积层
+        cnn_out = self.cnn(task)
+        x = torch.cat((x, cnn_out), -1)
 
         # 公共层
         x1 = F.relu(self.input_layer(x))
