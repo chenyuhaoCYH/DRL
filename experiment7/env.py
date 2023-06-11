@@ -410,9 +410,8 @@ class Env:
         # 计算时间
         compute_time = task.need_time
         # 总时间=出队列时间-创建时间+传输时间+队列持有时间+处理时间+ 50) % 50
-        #
-        sum_time = trans_time + compute_time + np.abs(
-            task.pick_time - task.create_time + 1000) % 1000 + task.hold_time + task.wait_time
+        # + np.abs(task.pick_time - task.create_time + 1000) % 1000
+        sum_time = trans_time + compute_time + task.hold_time + task.wait_time
         self.avg[vehicle.id].append(sum_time)
 
         # print("pick_time", task.pick_time)

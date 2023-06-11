@@ -122,7 +122,7 @@ class Vehicle:
             # 每隔一段时间进行一次任务产生
         if (self.cur_frame - self.lastCreatWorkTime) % self.timeSolt == 0:
             # # 每次有0.6的概率产生任务
-            if np.random.random() < 0.8:
+            # if np.random.random() < 0.8:
                 if self.len_task < MAX_TASK:  # 队列不满
                     if self.cur_frame % 3 == 0:
                         task = Task(self, self.cur_frame % 1000, 2)

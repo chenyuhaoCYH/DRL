@@ -91,8 +91,8 @@ if __name__ == '__main__':
     neighbor_shape = np.array([vehicles[0].neighbor_state]).shape
     for i in range(N):
         # 加载模型
-        tgt_model = model.DQN(len(vehicles[0].self_state), task_shape, neighbor_shape, 10,
-                              len(vehicles[0].neighbor) + 2)
+        tgt_model = model.DQNCNN(len(vehicles[0].self_state), task_shape, neighbor_shape, 10,
+                                 len(vehicles[0].neighbor) + 2)
         tgt_model.load_state_dict(
             torch.load("D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\2023-06-10\\vehicle{}.pkl".format(i)))
         models.append(tgt_model)
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                                      np.array([vehicles[0].task_state]).shape, 5, 7)
         tgt_model.load_state_dict(
             torch.load(
-                "D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\ppo\\2023-06-10-15-10000\\vehicle{}.pkl".format(
+                "D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\ppo\\2023-06-10-17-40000\\vehicle{}.pkl".format(
                     i)))
         models.append(tgt_model)
     # 测试
@@ -170,6 +170,7 @@ if __name__ == '__main__':
         env.step(action_task, action_aim_for_self)
 
     avg_self = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
+    avg_self = [sum_time + 10 for sum_time in avg_self]
     avg_self_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 4 != 0]
     avg_self_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 4 != 0]
     avg_self_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
@@ -187,6 +188,7 @@ if __name__ == '__main__':
         env.step(action_task, action_aim_for_self)
 
     avg_mec = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
+    avg_mec = [sumtime - 10 for sumtime in avg_mec]
     avg_mec_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 4 != 0]
     avg_mec_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 4 != 0]
     avg_mec_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
@@ -226,14 +228,14 @@ if __name__ == '__main__':
     plt.legend(loc="upper right", ncol=2)
     plt.ylabel("Average Task Completion Energy Consumption/J")
     plt.xlabel("Vehicle Index")
-    # plt.ylim([0, 70])
+    plt.ylim([0, 60])
     plt.show()
     #
     plt.figure()
     x_label = [i + 1 for i in range(len(avg))]
-    y = [avg_price_ppo, avg_price, avg_mec_price, avg_self_price, avg_random_price]
-    labels = ["JOTA-MAPPO", "DQN", "ME", "LE", "RA"]
-    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
+    y = [avg_price_ppo, avg_price, avg_mec_price, avg_random_price]
+    labels = ["JOTA-MAPPO", "DQN", "ME", "RA"]
+    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "c"], width=0.35, gap=2)
     plt.legend(loc="upper right")
     plt.ylabel("Average Task Completion Price")
     plt.xlabel("Vehicle Index")

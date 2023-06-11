@@ -21,7 +21,7 @@ class Task:
             # 安全性任务
             self.max_time = 80  # np.random.randint(40, 50)
         self.size = 0.7  # np.random.uniform(0.5, 1)  # Mb
-        self.cycle = np.random.randint(30, 50)  # cycle/bit
+        self.cycle = 40  # np.random.randint(30, 50)  # cycle/bit
         self.need_trans_size = self.size * np.power(2, 10)  # Kb 还剩余多少未传输完成
         self.need_precess_cycle = self.cycle * self.size * 1000  # Mb * cycle/byte =M cycle 还剩余多少轮次未完成（10^6)
 
