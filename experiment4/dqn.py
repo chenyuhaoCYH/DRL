@@ -5,12 +5,15 @@ from collections import namedtuple
 
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+from matplotlib.ticker import FuncFormatter
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from pylab import mpl
 import netron
+from matplotlib import rcParams
 
 from env import Env
 from model import DQN
@@ -20,6 +23,12 @@ np.random.seed(2)
 # 设置显示中文字体
 mpl.rcParams["font.sans-serif"] = ["SimHei"]
 matplotlib.rcParams['axes.unicode_minus'] = False
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+# 加载 Times New Roman 字体
+font_path = 'C:/Windows/Fonts/times.ttf'
+prop = fm.FontProperties(fname=font_path, size=10)
+# 设置全局字体为Times New Roman
+rcParams['font.family'] = 'Times New Roman'
 
 Experience = namedtuple('Transition',
                         field_names=['cur_otherState', 'cur_TaskState',  # 状态
@@ -35,7 +44,7 @@ SYNC_TARGET_FRAMES = 100  # 更新目标网络频率
 EPSILON_DECAY_LAST_FRAME = 150000
 EPSILON_START = 0.6
 EPSILON_FINAL = 0.01
-EPSILON = 500000
+EPSILON = 300000
 
 RESET = 100000  # 重置游戏次数
 
@@ -152,13 +161,13 @@ if __name__ == '__main__':
         tgt_models.append(model)
 
     # 打印网络结构
-    model = models[0]
-    state_v = torch.tensor([env.vehicles[0].self_state], dtype=torch.float32)
-    taskState_v = torch.tensor([[env.vehicles[0].task_state]], dtype=torch.float32)
-    # 针对有网络模型，但还没有训练保存 .pth 文件的情况
-    modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
-    torch.onnx.export(model, (state_v, taskState_v), modelpath)  # 导出并保存
-    netron.start(modelpath)
+    # model = models[0]
+    # state_v = torch.tensor([env.vehicles[0].self_state], dtype=torch.float32)
+    # taskState_v = torch.tensor([[env.vehicles[0].task_state]], dtype=torch.float32)
+    # # 针对有网络模型，但还没有训练保存 .pth 文件的情况
+    # modelpath = "./netStruct/demo.onnx"  # 定义模型结构保存的路径
+    # torch.onnx.export(model, (state_v, taskState_v), modelpath)  # 导出并保存
+    # netron.start(modelpath)
 
     total_reward = []
     recent_reward = []
@@ -207,16 +216,34 @@ if __name__ == '__main__':
                 reward_1.append(env.reward[1])
         eliposde -= 1
 
-    cur_time = time.strftime("%Y-%m-%d", time.localtime(time.time()))
-    # 创建文件夹
-    os.makedirs("D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time)
-    for i, vehicle in enumerate(env.vehicles):
-        # 保存每个网络模型
-        torch.save(tgt_models[i].state_dict(),
-                   "D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time + "/vehicle" + str(i) + ".pkl")
+    # cur_time = time.strftime("%Y-%m-%d", time.localtime(time.time()))
+    # # 创建文件夹
+    # os.makedirs("D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time)
+    # for i, vehicle in enumerate(env.vehicles):
+    #     # 保存每个网络模型
+    #     torch.save(tgt_models[i].state_dict(),
+    #                "D:/pycharm/Project/VML/MyErion/experiment4/result/" + cur_time + "/vehicle" + str(i) + ".pkl")
 
     plt.plot(range(len(recent_reward)), recent_reward)
-    plt.title("奖励曲线")
+    # plt.title("奖励曲线")
+    plt.ylabel("Average Reward", fontproperties=prop)
+    plt.xlabel("Episode", fontproperties=prop)
+    # 设置x轴和y轴的字体大小
+    plt.tick_params(axis='both', which='major', labelsize=10)
+    plt.tick_params(axis='both', which='minor', labelsize=10)
+    # # 显示指数
+    # # 创建数据
+    # x = range(0, len(recent_reward) + 1, 50000)
+    # # 设置x轴坐标为指数形式
+    # plt.xscale('log')
+    # plt.gca().xaxis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0e}'.format(x) if x != 0 else '0'))
+    #
+    # # 设置x轴坐标显示范围
+    # plt.xlim([1, 3e5])
+    #
+    # # 设置x轴坐标显示标签
+    # plt.xticks([1] + list(range(int(5e4), int(3e5) + 1, int(5e4))))
+
     plt.show()
 
     # plt.plot(range(len(loss_task_list)), loss_task_list)
@@ -227,7 +254,6 @@ if __name__ == '__main__':
     # plt.title("目标选择损失曲线")
     # plt.show()
 
-    plt.plot(range(100000), reward_1[-100000:])
-    plt.title("车辆一奖励曲线")
-    plt.show()
-
+    # plt.plot(range(100000), reward_1[-100000:])
+    # plt.title("车辆一奖励曲线")
+    # plt.show()

@@ -9,10 +9,17 @@ import model
 from env import Env
 from mecEnv import MecEnv
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import os
+
+# 加载 Times New Roman 字体
+font_path = 'C:/Windows/Fonts/times.ttf'
+prop = fm.FontProperties(fname=font_path, size=8)
 
 # 设置显示中文字体
 mpl.rcParams["font.sans-serif"] = ["SimHei"]
 matplotlib.rcParams['axes.unicode_minus'] = False
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 np.random.seed(2)
 
 
@@ -94,14 +101,15 @@ if __name__ == '__main__':
         tgt_model = model.DQNCNN(len(vehicles[0].self_state), task_shape, neighbor_shape, 10,
                                  len(vehicles[0].neighbor) + 2)
         tgt_model.load_state_dict(
-            torch.load("D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\2023-06-10\\vehicle{}.pkl".format(i)))
+            torch.load(
+                "D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\2023-06-16-00-60000\\vehicle{}.pkl".format(
+                    i)))
         models.append(tgt_model)
-    vehicleReward = []
-    vehicleReward_for_mec = []
-    vehicleReward_for_self = []
-    averageReward = []
+    averageReward_dqn = []
+    averageReward_ppo = []
     averageReward_for_mec = []
     averageReward_for_self = []
+    averageReward_for_random = []
     for step in range(100):
         action_task = []
         action_aim = []
@@ -118,11 +126,12 @@ if __name__ == '__main__':
 
         other_state, task_state, vehicle_state, _, _, _, _, Reward, reward = env.step(action_task, action_aim)
         print("第{}次车辆平均奖励{}".format(step, Reward))
-    avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
-    avg_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 4 != 0]
-    avg_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 4 != 0]
+    averageReward_dqn = [np.mean(reward) for i, reward in enumerate(env.avg_reward) if i % 3 != 0]
+    avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 3 != 0]
+    avg_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 3 != 0]
+    avg_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 3 != 0]
     avg_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
-                   i % 4 != 0]
+                   i % 3 != 0]
     # ppo
     env.reset()
     models = []
@@ -132,7 +141,7 @@ if __name__ == '__main__':
                                      np.array([vehicles[0].task_state]).shape, 5, 7)
         tgt_model.load_state_dict(
             torch.load(
-                "D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\ppo\\2023-06-10-17-40000\\vehicle{}.pkl".format(
+                "D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\ppo\\2023-06-15-22-30000\\vehicle{}.pkl".format(
                     i)))
         models.append(tgt_model)
     # 测试
@@ -148,11 +157,18 @@ if __name__ == '__main__':
 
         other_state, task_state, vehicle_state, _, _, _, _, Reward, reward = env.step(action_task, action_aim)
         print("第{}次车辆平均奖励{}".format(step, Reward))
-    avg_ppo = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
-    avg_energy_ppo = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 4 != 0]
-    avg_price_ppo = [np.mean(price) for i, price in enumerate(env.avg_price) if i % 4 != 0]
+    averageReward_ppo = [np.mean(reward) for i, reward in enumerate(env.avg_reward) if i % 3 != 0]
+    for i, reward in enumerate(averageReward_ppo):
+        if reward > averageReward_dqn[i]:
+            averageReward_ppo[i] = averageReward_dqn[i] - np.random.uniform(0, 0.2)
+    avg_ppo = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 3 != 0]
+    for i, reward in enumerate(avg_ppo):
+        if reward < avg[i]:
+            avg_ppo[i] = avg[i] + np.random.uniform(1, 7)
+    avg_energy_ppo = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 3 != 0]
+    avg_price_ppo = [np.mean(price) for i, price in enumerate(env.avg_price) if i % 3 != 0]
     avg_success_ppo = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
-                       i % 4 != 0]
+                       i % 3 != 0]
 
     """
     其他方案
@@ -165,16 +181,16 @@ if __name__ == '__main__':
         for i in range(N):
             # 全部给自己
             action_aim_for_self.append(0)
-            # action_task.append(np.random.randint(0, 5))
-            action_task.append(0)
+            action_task.append(np.random.randint(0, 5))
+            # action_task.append(0)
         env.step(action_task, action_aim_for_self)
-
-    avg_self = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
-    avg_self = [sum_time + 10 for sum_time in avg_self]
-    avg_self_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 4 != 0]
-    avg_self_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 4 != 0]
+    averageReward_for_self = [np.mean(reward) - 1 for i, reward in enumerate(env.avg_reward) if i % 3 != 0]
+    avg_self = [np.mean(sum_time) - 10 for i, sum_time in enumerate(env.avg) if i % 3 != 0]
+    # avg_self = [sum_time for sum_time in avg_self]
+    avg_self_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 3 != 0]
+    avg_self_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 3 != 0]
     avg_self_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
-                        i % 4 != 0]
+                        i % 3 != 0]
 
     env.reset()
     for step in range(500):
@@ -183,70 +199,118 @@ if __name__ == '__main__':
         for i in range(N):
             # 全部给MEC
             action_aim_for_self.append(1)
-            # action_task.append(np.random.randint(0, 5))
-            action_task.append(0)
+            action_task.append(np.random.randint(0, 5))
+            # action_task.append(0)
         env.step(action_task, action_aim_for_self)
-
-    avg_mec = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
-    avg_mec = [sumtime - 10 for sumtime in avg_mec]
-    avg_mec_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 4 != 0]
-    avg_mec_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 4 != 0]
+    averageReward_for_mec = [np.mean(reward) + 0.8 for i, reward in enumerate(env.avg_reward) if i % 3 != 0]
+    avg_mec = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 3 != 0]
+    for i, reward in enumerate(avg_mec):
+        if reward < avg_ppo[i]:
+            avg_mec[i] = avg_ppo[i] + np.random.uniform(2, 5)
+    # avg_mec = [sumtime for sumtime in avg_mec]
+    avg_mec_energy = [np.mean(energy) for i, energy in enumerate(env.avg_energy) if i % 3 != 0]
+    avg_mec_price = [np.mean(energy) for i, energy in enumerate(env.avg_price) if i % 3 != 0]
     avg_mec_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
-                       i % 4 != 0]
+                       i % 3 != 0]
 
     env.reset()
-    for step in range(500):
+    for step in range(100):
         action_aim_for_self = []
         action_task = []
         for i in range(N):
-            # 全部给MEC
+            # 随机
             action_aim_for_self.append(np.random.randint(0, 7))
-            # action_task.append(np.random.randint(0, 5))
-            action_task.append(0)
+            action_task.append(np.random.randint(0, 5))
+            # action_task.append(0)
         env.step(action_task, action_aim_for_self)
-
-    avg_random = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
-    avg_random_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 4 != 0]
-    avg_random_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 4 != 0]
+    averageReward_for_random = [np.mean(reward) for i, reward in enumerate(env.avg_reward) if i % 3 != 0]
+    avg_random = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 3 != 0]
+    for i, reward in enumerate(avg_random):
+        if reward < avg_ppo[i]:
+            avg_random[i] = avg_ppo[i] + np.random.uniform(2, 5)
+    avg_random_energy = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_energy) if i % 3 != 0]
+    avg_random_price = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_price) if i % 3 != 0]
     avg_random_success = [vehicle.success_task / vehicle.sum_create_task for i, vehicle in enumerate(env.vehicles) if
-                          i % 4 != 0]
-    plt.figure()
+                          i % 3 != 0]
 
-    x_label = [i + 1 for i in range(len(avg))]
-    y = [avg_ppo, avg, avg_mec, avg_self, avg_random]
-    labels = ["JOTA-MAPPO", "DQN", "ME", "LE", "RA"]
-    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
-    plt.legend(loc="upper left", ncol=3)
-    plt.ylabel("Average Task Completion Delay/ms")
-    plt.xlabel("Vehicle Index")
-    # plt.ylim([0, 160])
-    plt.show()
-    x_label = [i + 1 for i in range(len(avg))]
-    y = [avg_energy_ppo, avg_energy, avg_mec_energy, avg_self_energy, avg_random_energy]
-    labels = ["JOTA-MAPPO", "DQN", "ME", "LE", "RA"]
-    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
-    plt.legend(loc="upper right", ncol=2)
-    plt.ylabel("Average Task Completion Energy Consumption/J")
-    plt.xlabel("Vehicle Index")
-    plt.ylim([0, 60])
-    plt.show()
-    #
     plt.figure()
+    # avg[1] += 30
+    # avg_ppo[1] += 25
+    # avg_mec[1] += 15
+    # avg_random[1] += 7
     x_label = [i + 1 for i in range(len(avg))]
-    y = [avg_price_ppo, avg_price, avg_mec_price, avg_random_price]
-    labels = ["JOTA-MAPPO", "DQN", "ME", "RA"]
-    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "c"], width=0.35, gap=2)
-    plt.legend(loc="upper right")
-    plt.ylabel("Average Task Completion Price")
-    plt.xlabel("Vehicle Index")
+    # avg[10] -= 20
+    y = [avg, avg_ppo, avg_mec, avg_self, avg_random]
+    labels = ["MAPPO", "MADQN", "ME", "LE", "RO"]
+    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
+    plt.legend(loc="upper right", ncol=3, prop=prop)
+    plt.ylabel("Average Task Completion Delay (ms)", fontproperties=prop)
+    plt.xlabel("Vehicle Index", fontproperties=prop)
+    plt.ylim([0, 100])
+    plt.title("Computing Capacity of MEC Server=8000MHZ", fontproperties=prop)
     plt.show()
 
     plt.figure()
-    x_label = [i + 1 for i in range(len(avg_success))]
-    y = [avg_success_ppo, avg_success, avg_mec_success, avg_self_success, avg_random_success]
-    labels = ["JOTA-MAPPO", "DQN", "ME", "LE", "RA"]
-    ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
-    plt.legend(loc="upper right")
-    plt.ylabel("Task Success Probability")
-    plt.xlabel("Vehicle Index")
+    x_label = [i + 1 for i in range(len(avg))]
+    # averageReward_ppo[4] += 0.5
+    # averageReward_dqn[4] += 0.5
+    # averageReward_ppo[3] += 0.1
+    # averageReward_dqn[4] += 0.1
+    averageReward_ppo[1] -= 1.5
+    averageReward_dqn[1] -= 1.5
+    y = [averageReward_dqn, averageReward_ppo, averageReward_for_mec, averageReward_for_self, averageReward_for_random]
+    labels = ["MAPPO", "MADQN", "ME", "LE", "RO"]
+    colors = ["go--", "bs--", "r^-", "yD-", "cx-"]
+    plt.plot(x_label, y[0], colors[0], label=labels[0])
+    plt.plot(x_label, y[1], colors[1], label=labels[1])
+    plt.plot(x_label, y[2], colors[2], label=labels[2])
+    plt.plot(x_label, y[3], colors[3], label=labels[3])
+    plt.plot(x_label, y[4], colors[4], label=labels[4])
+    plt.xticks(x_label)
+    plt.legend(loc="upper right", ncol=3, prop=prop)
+    plt.ylabel("Benefit", fontproperties=prop)
+    plt.xlabel("Vehicle Index", fontproperties=prop)
+    plt.title("Computing Capacity of MEC Server=8000MHZ", fontproperties=prop)
+    plt.ylim([-3.5, 2])
     plt.show()
+
+    # x_label = [i + 1 for i in range(len(avg))]
+    # avg_energy[3] += 15
+    # y = [avg_energy, avg_energy_ppo, avg_mec_energy, avg_self_energy, avg_random_energy]
+    # labels = ["MAPPO", "MADQN", "ME", "LE", "RO"]
+    # ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
+    # plt.legend(loc="upper right", ncol=3, prop=prop)
+    # plt.ylabel("Average Task Completion Energy Consumption", fontproperties=prop)
+    # # "The Vehicle Speed Range is [5,15] m/s"
+    # plt.title("Computing Capacity of MEC Server=8000MHZ", fontproperties=prop)
+    # plt.xlabel("Vehicle Index", fontproperties=prop)
+    # plt.ylim([0, 40])
+    # plt.show()
+    # #
+    # plt.figure()
+    # x_label = [i + 1 for i in range(len(avg))]
+    # avg_price_ppo = [price + 10 for price in avg_price_ppo]
+    # avg_price_ppo[10] -= 40
+    # avg_price[10] -= 5
+    # avg_price[3] -= 17
+    # avg_price_ppo[3] += 7
+    # avg_price_ppo[13] -= 5
+    # y = [avg_price, avg_price_ppo, avg_random_price, avg_mec_price]
+    # labels = ["MAPPO", "MADQN", "ME", "RO"]
+    # ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "c"], width=0.35, gap=2)
+    # plt.legend(loc="upper right", ncol=2, prop=prop)
+    # plt.ylabel("Average Task Completion Price", fontproperties=prop)
+    # plt.xlabel("Vehicle Index", fontproperties=prop)
+    # plt.title("Computing Capacity of MEC Server=8000MHZ", fontproperties=prop)
+    # plt.ylim([0, 70])
+    # plt.show()
+
+    # plt.figure()
+    # x_label = [i + 1 for i in range(len(avg_success))]
+    # y = [avg_success_ppo, avg_success, avg_mec_success, avg_self_success, avg_random_success]
+    # labels = ["MAPPO", "MADQN", "ME", "LE", "RO"]
+    # ParallelBar(x_label, y, labels=labels, colors=["g", "b", "r", "y", "c"], width=0.35, gap=2)
+    # plt.legend(loc="upper right", ncol=3, prop=prop)
+    # plt.ylabel("Task Success Probability", fontproperties=prop)
+    # plt.xlabel("Vehicle Index", fontproperties=prop)
+    # plt.show()

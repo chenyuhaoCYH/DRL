@@ -1,16 +1,18 @@
 import torch
 
-from drl.DRL.experiment7 import model
+from experiment7 import model
 from env import Env
+import os
 import numpy as np
 from mecEnv import MecEnv
 import matplotlib.pyplot as plt
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 np.random.seed(2)
 if __name__ == '__main__':
     print()
-    env = Env()
-    # env = MecEnv()
+    # env = Env()
+    env = MecEnv()
     env.reset()
 
     # 测试网络节点数
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     #     tgt_model.load_state_dict(
     #         torch.load("D:\\pycharm\\Project\\VML\\MyErion\\experiment7\\result\\2023-05-23\\vehicle{}.pkl".format(i)))
     #     models.append(tgt_model)
-    for step in range(500):
+    for step in range(100):
         # for j in range(20):
         #     x[j].append(env.vehicles[j].position[0])
         #     y[j].append(env.vehicles[j].position[1])
@@ -56,9 +58,10 @@ if __name__ == '__main__':
             # action_task.append(np.random.randint(0, 10))
             action_task.append(0)
             # action_aim.append(np.random.randint(0, 7))
-            action_aim.append(1)
+            action_aim.append(0)
             # action_aim.append(1)
-        other_state, task_state, vehicle_state, _, _, _, _, Reward, _ = env.step(action_task, action_aim)
+            # other_state, task_state, vehicle_state, _, _, _, _,
+        Reward, _ = env.step(action_task, action_aim)
         # reward.append(Reward)
         # print("第{}次平均奖励{}".format(step, Reward))
         # print("当前状态:", state)
@@ -85,6 +88,12 @@ if __name__ == '__main__':
     avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg) if i % 4 != 0]
     plt.ylabel("sumTime")
     plt.bar(range(len(avg)), avg, color="blue")
+    plt.show()
+
+    plt.figure()
+    avg = [np.mean(sum_time) for i, sum_time in enumerate(env.avg_reward) if i % 4 != 0]
+    plt.ylabel("avg_reward")
+    plt.plot(range(len(avg)), avg, color="blue")
     plt.show()
 
     plt.figure()

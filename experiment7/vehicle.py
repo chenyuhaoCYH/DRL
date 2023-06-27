@@ -117,7 +117,7 @@ class Vehicle:
 
     # 产生任务 传入当前时间
     def create_work(self):
-        if self.id % 4 == 0:
+        if self.id % 3 == 0:
             return
             # 每隔一段时间进行一次任务产生
         if (self.cur_frame - self.lastCreatWorkTime) % self.timeSolt == 0:

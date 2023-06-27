@@ -231,6 +231,11 @@ if __name__ == '__main__':
     step = 0
     while step < EPISODE:
         step += 1
+        # if step % 100 == 0:
+        #     print("重置环境")
+        #     env = Env()
+        #     env.reset()
+        #     vehicles = env.vehicles
         # 设置状态缓存队列
         self_states = []
         neighbor_states = []
@@ -286,6 +291,11 @@ if __name__ == '__main__':
             update(vehicles[i].memory, actor_models[i], actor_optimizers[i], critic_models[i], critic_optimizers[i])
             vehicles[i].memory.clear()
 
+        if step % 1000 == 0:
+            env = Env()
+            env.reset()
+            vehicles = env.vehicles
+
         if step % 10000 == 0 and step != 0:
             print("保存模型....")
             # 保存网络
@@ -300,11 +310,11 @@ if __name__ == '__main__':
 
     # 打印数据
     plt.plot(range(len(rewards)), rewards)
-    plt.title("训练奖励曲线")
+    plt.title("rewards")
     plt.xlabel("episode")
     plt.show()
 
-    plt.plot(range(len(vehicle1_reward)), vehicle1_reward)
-    plt.title("训练时车辆1奖励曲线")
-    plt.xlabel("episode")
-    plt.show()
+    # plt.plot(range(len(vehicle1_reward)), vehicle1_reward)
+    # plt.title("训练时车辆1奖励曲线")
+    # plt.xlabel("episode")
+    # plt.show()
