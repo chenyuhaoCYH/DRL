@@ -123,18 +123,18 @@ class Vehicle:
         if (self.cur_frame - self.lastCreatWorkTime) % self.timeSolt == 0:
             # # 每次有0.6的概率产生任务
             # if np.random.random() < 0.8:
-                if self.len_task < MAX_TASK:  # 队列不满
-                    if self.cur_frame % 3 == 0:
-                        task = Task(self, self.cur_frame % 1000, 2)
-                    else:
-                        task = Task(self, self.cur_frame % 1000)
-                    self.sum_create_task += 1
-                    self.lastCreatWorkTime = self.cur_frame
-                    self.total_task.append(task)
-                    self.len_task += 1
-                    self.overflow = 0
+            if self.len_task < MAX_TASK:  # 队列不满
+                if self.cur_frame % 3 == 0:
+                    task = Task(self, self.cur_frame % 1000, 2)
                 else:
-                    self.overflow = 1
+                    task = Task(self, self.cur_frame % 1000)
+                self.sum_create_task += 1
+                self.lastCreatWorkTime = self.cur_frame
+                self.total_task.append(task)
+                self.len_task += 1
+                self.overflow = 0
+            else:
+                self.overflow = 1
         # 创建第二个任务
         # if np.random.random() > 0.5:
         #     if self.len_task < MAX_TASK:  # 队列不满

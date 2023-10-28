@@ -1,4 +1,4 @@
-import ptan
+#import ptan
 import numpy as np
 import torch
 import torch.nn as nn
@@ -124,11 +124,12 @@ class ModelSACTwinQ(nn.Module):
         x = torch.cat([obs, act], dim=1)
         return self.q1(x), self.q2(x)
 
+"""
 
 class AgentDDPG(ptan.agent.BaseAgent):
-    """
+    """"""
     Agent implementing Orstein-Uhlenbeck exploration process
-    """
+    """"""
 
     def __init__(self, net, device="cpu", ou_enabled=True,
                  ou_mu=0.0, ou_teta=0.15, ou_sigma=0.2,
@@ -168,7 +169,7 @@ class AgentDDPG(ptan.agent.BaseAgent):
         actions = np.clip(actions, -1, 1)
         return actions, new_a_states
 
-
+"""
 class DQNCNN(nn.Module):
     def __init__(self, obs_dim, task_dim, neighbor_dim, taskAction_dim, aimAction_dim):
         super(DQNCNN, self).__init__()
