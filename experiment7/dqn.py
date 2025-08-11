@@ -15,6 +15,7 @@ import netron
 
 from env import Env
 from model import DQN, DQNCNN
+from test.test import C
 
 np.random.seed(2)
 
@@ -97,6 +98,7 @@ def play_step(env, epsilon, models):
 
 # 计算一个智能体的损失
 def calc_loss(batch, net: DQNCNN, tgt_net: DQNCNN, device="cpu"):
+    c=C()
     cur_otherState, cur_TaskState, curNeighborState, taskAction, aimAction, rewards, next_otherState, next_TaskState, next_NeighborState = batch  #
 
     otherStates_v = torch.tensor(np.array(cur_otherState, copy=False), dtype=torch.float32).to(device)
